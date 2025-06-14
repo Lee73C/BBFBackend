@@ -1,0 +1,24 @@
+[
+  {
+    "id": 2,
+    "title": "Chucrut",
+    "description": "El clásico fermentado de repollo, rico en probióticos y con un sabor intenso y ligeramente ácido. Perfecto para acompañar carnes, ensaladas o simplemente disfrutar solo. Elaborado con ingredientes naturales y sin conservantes",
+    "price": 5000,
+    "status": true,
+    "stock": 250,
+    "category": "ofertas",
+    "thumbnails": [],
+    "code": "1278444621654"
+  },
+  {
+    "id": 3,
+    "title": "Cerezas al Vinagre",
+    "description": "Un equilibrio perfecto entre dulzura y acidez. Nuestras cerezas al vinagre son una explosión de sabor en cada bocado, ideales para acompañar quesos, ensaladas o carnes. Fermentadas de manera artesanal, conservan su textura y propiedades naturales.",
+    "price": 1000,
+    "status": true,
+    "stock": 200,
+    "category": "nuevos",
+    "thumbnails": [],
+    "code": "1786689265383"
+  }
+]
