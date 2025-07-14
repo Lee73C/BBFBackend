@@ -1,16 +1,30 @@
 {
-  "name": "entrega",
+  "name": "ecommerce-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend para ecommerce con gestión de productos y carritos",
   "main": "app.js",
+  "type": "module",
   "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "ecommerce",
+    "nodejs",
+    "express",
+    "handlebars",
+    "socket.io"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.18.2",
+    "express-handlebars": "^7.1.3",
+    "method-override": "^3.0.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }

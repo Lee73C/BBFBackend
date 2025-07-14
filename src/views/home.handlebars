@@ -1,0 +1,41 @@
+<h2>Lista de Productos</h2>
+
+{{#if error}}
+    <div class="alert alert-danger">
+        {{error}}
+    </div>
+{{/if}}
+
+{{#if products}}
+    <div class="products-grid">
+        {{#each products}}
+        <div class="product-card">
+            <div class="product-title">{{this.title}}</div>
+            <div class="product-price">${{this.price}}</div>
+            
+            {{#if this.thumbnails}}
+                {{#if this.thumbnails.length}}
+                    <div class="product-images">
+                        {{#each this.thumbnails}}
+                            <img src="{{this}}" alt="{{../this.title}}" class="product-image" onerror="this.style.display='none';">
+                        {{/each}}
+                    </div>
+                {{/if}}
+            {{/if}}
+            
+            <p class="product-description">{{this.description}}</p>
+            
+            <div class="product-details">
+                <strong>Stock:</strong> {{this.stock}} | 
+                <strong>Categoría:</strong> {{this.category}} | 
+                <strong>Estado:</strong> <span class="{{#if this.status}}text-success{{else}}text-danger{{/if}}">{{#if this.status}}Activo{{else}}Inactivo{{/if}}</span><br>
+                <strong>Código:</strong> {{this.code}}
+            </div>
+        </div>
+        {{/each}}
+    </div>
+{{else}}
+    <div class="alert alert-danger">
+        <p>No hay productos disponibles.</p>
+    </div>
+{{/if}}
