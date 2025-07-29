@@ -1,41 +1,624 @@
-<h2>Lista de Productos</h2>
+<div class="page-header">
+    <h2>{{#if filters.search}}Resultados para: "{{filters.search}}"{{else}}Catálogo de Productos{{/if}}</h2>
+
+    <!-- Estadísticas rápidas -->
+    {{#if stats}}
+    {{#if pagination.totalDocs}}
+    <div class="results-info">
+        <p>📦 <strong>{{pagination.totalDocs}}</strong> productos encontrados</p>
+    </div>
+    {{/if}}
+    {{/if}}
+</div>
+
+<!-- Status del carrito -->
+<div id="cartStatus" class="cart-status-bar">
+    <div class="cart-info">
+        <strong>🛒 Carrito:</strong> <span id="cartCount">0</span> productos
+    </div>
+    <div class="cart-actions">
+        <button id="viewCartBtn" class="btn-primary">Ver Carrito</button>
+        <button id="clearCartBtn" class="btn-danger">Limpiar</button>
+        <button id="newCartBtn" class="btn-secondary">Nuevo</button>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
 
 {{#if error}}
-    <div class="alert alert-danger">
-        {{error}}
-    </div>
+<div class="alert alert-danger">{{error}}</div>
 {{/if}}
 
-{{#if products}}
-    <div class="products-grid">
-        {{#each products}}
-        <div class="product-card">
-            <div class="product-title">{{this.title}}</div>
-            <div class="product-price">${{this.price}}</div>
-            
-            {{#if this.thumbnails}}
-                {{#if this.thumbnails.length}}
-                    <div class="product-images">
-                        {{#each this.thumbnails}}
-                            <img src="{{this}}" alt="{{../this.title}}" class="product-image" onerror="this.style.display='none';">
+<!-- Filtros y Búsqueda -->
+<div class="filters-section">
+    <form id="filtersForm" method="GET" action="/products">
+        <div class="filters-container">
+            <!-- Búsqueda principal -->
+            <div class="search-main">
+                <div class="search-group">
+                    <label for="search">🔍 Buscar productos</label>
+                    <input type="text" id="search" name="search" value="{{filters.search}}"
+                        placeholder="Buscar por nombre, categoría..." class="search-input">
+                </div>
+                <button type="submit" class="btn-search">Buscar</button>
+            </div>
+
+            <!-- Filtros secundarios -->
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="category">📂 Categoría</label>
+                    <select id="category" name="category">
+                        <option value="all" {{#eq filters.currentCategory 'all' }}selected{{/eq}}>
+                            Todas las categorías
+                        </option>
+                        {{#each filters.categories}}
+                        <option value="{{this}}" {{#eq this ../filters.currentCategory}}selected{{/eq}}>
+                            {{this}}
+                        </option>
                         {{/each}}
-                    </div>
-                {{/if}}
-            {{/if}}
-            
-            <p class="product-description">{{this.description}}</p>
-            
-            <div class="product-details">
-                <strong>Stock:</strong> {{this.stock}} | 
-                <strong>Categoría:</strong> {{this.category}} | 
-                <strong>Estado:</strong> <span class="{{#if this.status}}text-success{{else}}text-danger{{/if}}">{{#if this.status}}Activo{{else}}Inactivo{{/if}}</span><br>
-                <strong>Código:</strong> {{this.code}}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="availability">📦 Disponibilidad</label>
+                    <select id="availability" name="availability">
+                        <option value="all" {{#eq filters.currentAvailability 'all' }}selected{{/eq}}>
+                            Todos
+                        </option>
+                        <option value="available" {{#eq filters.currentAvailability 'available' }}selected{{/eq}}>
+                            Disponibles
+                        </option>
+                        <option value="outOfStock" {{#eq filters.currentAvailability 'outOfStock' }}selected{{/eq}}>
+                            Sin stock
+                        </option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="sort">📊 Ordenar por</label>
+                    <select id="sort" name="sort">
+                        <option value="status_desc" {{#eq filters.currentSort 'status_desc' }}selected{{/eq}}>
+                            Relevancia
+                        </option>
+                        <option value="price_asc" {{#eq filters.currentSort 'price_asc' }}selected{{/eq}}>
+                            Precio ↑
+                        </option>
+                        <option value="price_desc" {{#eq filters.currentSort 'price_desc' }}selected{{/eq}}>
+                            Precio ↓
+                        </option>
+                        <option value="title_asc" {{#eq filters.currentSort 'title_asc' }}selected{{/eq}}>
+                            Nombre A-Z
+                        </option>
+                        <option value="newest" {{#eq filters.currentSort 'newest' }}selected{{/eq}}>
+                            Más recientes
+                        </option>
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <a href="/products" class="btn-clear">🔄 Limpiar</a>
+                </div>
             </div>
         </div>
+
+        <!-- Campo oculto para mantener la página -->
+        <input type="hidden" name="page" value="{{pagination.page}}">
+    </form>
+</div>
+
+<!-- Productos -->
+{{#if products}}
+<div class="products-grid">
+    {{#each products}}
+    <div class="product-card {{#unless this.status}}product-disabled{{/unless}}">
+        <div class="product-header">
+            <div class="product-title">
+                <!-- AGREGAR ENLACE AL TÍTULO -->
+                <a href="/products/{{this._id}}" class="product-title-link">{{this.title}}</a>
+            </div>
+            <div class="product-price">${{this.price}}</div>
+        </div>
+
+        {{#if this.thumbnails.length}}
+        <div class="product-images">
+            {{#each this.thumbnails}}
+            {{#if @first}}
+            <!-- AGREGAR ENLACE A LA IMAGEN -->
+            <a href="/products/{{../this._id}}">
+                <img src="{{this}}" alt="{{../this.title}}" class="product-image" onerror="this.style.display='none';">
+            </a>
+            {{/if}}
+            {{/each}}
+        </div>
+        {{else}}
+        <div class="product-no-image">
+            <a href="/products/{{this._id}}">📦</a>
+        </div>
+        {{/if}}
+
+        <p class="product-description">{{this.description}}</p>
+
+        <div class="product-details">
+            <div class="product-info-row">
+                <span class="info-item">
+                    <strong>Stock:</strong>
+                    <span
+                        class="{{#if this.stock}}{{#if (gt this.stock 5)}}text-success{{else}}text-warning{{/if}}{{else}}text-danger{{/if}}">
+                        {{#if this.stock}}{{this.stock}}{{else}}Sin stock{{/if}}
+                    </span>
+                </span>
+                <span class="info-item">
+                    <strong>Categoría:</strong>
+                    <a href="/products?query={{this.category}}" class="category-link">{{this.category}}</a>
+                </span>
+            </div>
+            <div class="product-info-row">
+                <span class="info-item">
+                    <strong>Estado:</strong>
+                    <span class="{{#if this.status}}text-success{{else}}text-danger{{/if}}">
+                        {{#if this.status}}Activo{{else}}Inactivo{{/if}}
+                    </span>
+                </span>
+                <span class="info-item">
+                    <strong>Código:</strong> {{this.code}}
+                </span>
+            </div>
+        </div>
+
+        <!-- Controles del carrito -->
+        {{#if this.status}}
+        {{#if this.stock}}
+        <div class="cart-controls">
+            <div class="quantity-section">
+                <label for="quantity-{{this._id}}">Cantidad:</label>
+                <input type="number" id="quantity-{{this._id}}" min="1" max="{{this.stock}}" value="1"
+                    class="quantity-input">
+            </div>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="product-actions">
+                <button onclick="addToCart('{{this._id}}', '{{this.title}}', {{this.price}}, {{this.stock}})"
+                    class="btn-success add-to-cart-btn">
+                    🛒 Agregar al Carrito
+                </button>
+
+                <!-- BOTÓN PARA VER DETALLES -->
+                <a href="/products/{{this._id}}" class="btn-info view-details-btn">
+                    👁️ Ver Detalles
+                </a>
+            </div>
+        </div>
+        {{else}}
+        <div class="out-of-stock">
+            <span class="stock-message">Sin stock disponible</span>
+            <!-- ENLACE PARA VER DETALLES AÚN SIN STOCK -->
+            <a href="/products/{{this._id}}" class="btn-secondary view-details-btn">
+                👁️ Ver Detalles
+            </a>
+        </div>
+        {{/if}}
+        {{else}}
+        <div class="product-inactive">
+            <span class="inactive-message">Producto no disponible</span>
+            <!-- ENLACE PARA VER DETALLES AÚN INACTIVO -->
+            <a href="/products/{{this._id}}" class="btn-secondary view-details-btn">
+                👁️ Ver Detalles
+            </a>
+        </div>
+        {{/if}}
+    </div>
+    {{/each}}
+</div>
+
+<!-- Paginación -->
+{{#if pagination}}
+{{#if (gt pagination.totalPages 1)}}
+<div class="pagination-section">
+    <div class="pagination-info">
+        Mostrando {{#if products.length}}{{pagination.limit}}{{else}}0{{/if}} de {{pagination.totalDocs}} productos
+        (Página {{pagination.page}} de {{pagination.totalPages}})
+    </div>
+
+    <div class="pagination-controls">
+        {{#if pagination.hasPrevPage}}
+        <button onclick="goToPage(1)" class="btn-pagination">⏮️ Primera</button>
+        <button onclick="goToPage({{pagination.prevPage}})" class="btn-pagination">⬅️ Anterior</button>
+        {{/if}}
+        <!-- Números de página -->
+        {{#each (range (subtract pagination.page 2) (add pagination.page 2) 1 pagination.totalPages)}}
+        {{#if (eq this ../pagination.page)}}
+        <span class="btn-pagination current-page">{{this}}</span>
+        {{else}}
+        <button onclick="goToPage({{this}})" class="btn-pagination">{{this}}</button>
+        {{/if}}
         {{/each}}
+
+        {{#if pagination.hasNextPage}}
+        <button onclick="goToPage({{pagination.nextPage}})" class="btn-pagination">Siguiente ➡️</button>
+        <button onclick="goToPage({{pagination.totalPages}})" class="btn-pagination">Última ⏭️</button>
+        {{/if}}
     </div>
-{{else}}
-    <div class="alert alert-danger">
-        <p>No hay productos disponibles.</p>
-    </div>
+</div>
 {{/if}}
+{{/if}}
+
+{{else}}
+<div class="no-products">
+    <div class="no-products-icon">🔍</div>
+    <h3>No se encontraron productos</h3>
+    <p>
+        {{#if filters.search}}
+        No hay productos que coincidan con tu búsqueda "{{filters.search}}".
+        {{else}}
+        No hay productos disponibles con los filtros seleccionados.
+        {{/if}}
+    </p>
+    <a href="/products" class="btn-primary">Ver Todos los Productos</a>
+</div>
+{{/if}}
+
+<!-- Modal del carrito -->
+<div id="cartModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div
+        style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80%; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>🛒 Mi Carrito</h3>
+            <button onclick="closeCartModal()"
+                style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+
+        <div id="cartContent">
+            <!-- Contenido del carrito se carga aquí -->
+        </div>
+
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="font-size: 18px;">Total: $<span id="cartTotal">0</span></strong>
+                <div>
+                    <button onclick="closeCartModal()" class="btn-secondary" style="margin-right: 10px;">Cerrar</button>
+                    <button onclick="checkout()" class="btn-success">Finalizar Compra</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Variables globales
+    let currentCartId = null;
+    let cartItems = [];
+
+    // Funciones de gestión de carrito persistente
+    const CartSession = {
+        save: function (cartId) {
+            localStorage.setItem('bbfermentos_cart_id', cartId);
+            localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
+            console.log('💾 Carrito guardado en sesión:', cartId);
+        },
+
+        get: function () {
+            const cartId = localStorage.getItem('bbfermentos_cart_id');
+            const timestamp = localStorage.getItem('bbfermentos_cart_timestamp');
+
+            if (cartId && timestamp) {
+                const age = Date.now() - parseInt(timestamp);
+                const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+
+                if (age < maxAge) {
+                    console.log('♻️ Carrito recuperado de sesión:', cartId);
+                    return cartId;
+                } else {
+                    console.log('⏰ Carrito expirado, creando uno nuevo');
+                    this.clear();
+                }
+            }
+            return null;
+        },
+
+        clear: function () {
+            localStorage.removeItem('bbfermentos_cart_id');
+            localStorage.removeItem('bbfermentos_cart_timestamp');
+            console.log('🗑️ Sesión de carrito limpiada');
+        },
+
+        verify: async function (cartId) {
+            try {
+                const response = await fetch(`/api/carts/${cartId}`);
+                const exists = response.ok;
+                console.log('🔍 Verificación de carrito:', cartId, exists ? '✅' : '❌');
+                return exists;
+            } catch (error) {
+                console.log('❌ Error verificando carrito:', error);
+                return false;
+            }
+        }
+    };
+
+    // Auto-aplicar filtros en tiempo real
+    document.addEventListener('DOMContentLoaded', async () => {
+        await initializeCart();
+        initializeFilters();
+    });
+
+    // Inicializar filtros
+    function initializeFilters() {
+        const form = document.getElementById('filtersForm');
+        const searchInput = document.getElementById('search');
+        let searchTimeout;
+
+        // Auto-submit en cambios de filtros (excepto búsqueda)
+        const filterInputs = form.querySelectorAll('select, input[type="number"]');
+        filterInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                // Resetear página a 1 cuando cambian los filtros
+                document.querySelector('input[name="page"]').value = 1;
+                form.submit();
+            });
+        });
+
+        // Búsqueda con debounce
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (e.target.value.length >= 2 || e.target.value.length === 0) {
+                    document.querySelector('input[name="page"]').value = 1;
+                    form.submit();
+                }
+            }, 500); // 500ms de debounce
+        });
+
+        // Prevenir submit en Enter durante la escritura
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                document.querySelector('input[name="page"]').value = 1;
+                form.submit();
+            }
+        });
+    }
+
+    async function initializeCart() {
+        try {
+            console.log('🚀 Inicializando carrito...');
+
+            const savedCartId = CartSession.get();
+
+            if (savedCartId) {
+                const cartExists = await CartSession.verify(savedCartId);
+
+                if (cartExists) {
+                    currentCartId = savedCartId;
+                    console.log('✅ Usando carrito existente:', currentCartId);
+                    await updateCartDisplay();
+                    return;
+                } else {
+                    console.log('⚠️ Carrito no existe en servidor, creando uno nuevo');
+                    CartSession.clear();
+                }
+            }
+
+            console.log('🆕 Creando nuevo carrito...');
+            const response = await fetch('/api/carts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                currentCartId = data.cart._id;
+                CartSession.save(currentCartId);
+                console.log('✅ Nuevo carrito creado:', currentCartId);
+                updateCartDisplay();
+            } else {
+                showAlert('Error al inicializar carrito', 'danger');
+            }
+        } catch (error) {
+            console.error('❌ Error inicializando carrito:', error);
+            showAlert('Error de conexión al inicializar carrito', 'danger');
+        }
+    }
+
+    async function createNewCart() {
+        if (confirm('¿Estás seguro de que quieres crear un nuevo carrito? Se perderá el carrito actual.')) {
+            CartSession.clear();
+            await initializeCart();
+            showAlert('Nuevo carrito creado', 'success');
+        }
+    }
+
+    async function addToCart(productId, productTitle, productPrice, productStock) {
+        if (!currentCartId) {
+            showAlert('Error: Carrito no inicializado', 'danger');
+            await initializeCart();
+            return;
+        }
+
+        const quantityInput = document.getElementById(`quantity-${productId}`);
+        const quantity = parseInt(quantityInput.value);
+
+        if (quantity < 1) {
+            showAlert('La cantidad debe ser mayor a 0', 'danger');
+            return;
+        }
+
+        if (quantity > productStock) {
+            showAlert(`Solo hay ${productStock} unidades disponibles`, 'danger');
+            return;
+        }
+
+        try {
+            for (let i = 0; i < quantity; i++) {
+                const response = await fetch(`/api/carts/${currentCartId}/product/${productId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message);
+                }
+            }
+
+            showAlert(`${quantity} x ${productTitle} agregado al carrito`, 'success');
+            quantityInput.value = 1;
+            await updateCartDisplay();
+            CartSession.save(currentCartId);
+
+        } catch (error) {
+            console.error('Error agregando al carrito:', error);
+            showAlert('Error al agregar producto: ' + error.message, 'danger');
+        }
+    }
+    function goToPage(page) {
+        const currentUrl = new URL(window.location);
+        currentUrl.searchParams.set('page', page);
+        window.location.href = currentUrl.toString();
+    }
+
+    async function updateCartDisplay() {
+        if (!currentCartId) return;
+
+        try {
+            const response = await fetch(`/api/carts/${currentCartId}`);
+            if (response.ok) {
+                const data = await response.json();
+                const cart = data.cart;
+                cartItems = cart.products || [];
+
+                // Actualizar contador
+                const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+                document.getElementById('cartCount').textContent = totalItems;
+
+                // Actualizar timestamp si hay actividad
+                if (totalItems > 0) {
+                    CartSession.save(currentCartId);
+                }
+
+            } else {
+                console.error('Error obteniendo carrito');
+                // Si el carrito no existe, crear uno nuevo
+                if (response.status === 404) {
+                    console.log('🔄 Carrito no encontrado, creando uno nuevo');
+                    CartSession.clear();
+                    await initializeCart();
+                }
+            }
+        } catch (error) {
+            console.error('Error actualizando carrito:', error);
+        }
+    }
+
+    // Ver carrito - redirigir a vista específica
+    async function viewCart() {
+        if (!currentCartId) {
+            showAlert('Carrito no inicializado', 'danger');
+            await initializeCart();
+            return;
+        }
+
+        // Verificar que el carrito existe antes de redirigir
+        const cartExists = await CartSession.verify(currentCartId);
+        if (!cartExists) {
+            showAlert('El carrito no existe, creando uno nuevo...', 'warning');
+            await initializeCart();
+            return;
+        }
+
+        // Redirigir a la vista específica del carrito
+        window.location.href = `/carts/${currentCartId}`;
+    }
+
+    // Limpiar carrito
+    async function clearCart() {
+        if (!currentCartId) return;
+
+        if (confirm('¿Estás seguro de que quieres limpiar el carrito?')) {
+            try {
+                const response = await fetch(`/api/carts/${currentCartId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showAlert('Carrito limpiado', 'success');
+                    await updateCartDisplay();
+                } else {
+                    showAlert('Error al limpiar carrito', 'danger');
+                }
+            } catch (error) {
+                console.error('Error limpiando carrito:', error);
+                showAlert('Error de conexión', 'danger');
+            }
+        }
+    }
+
+    // Finalizar compra
+    function checkout() {
+        if (cartItems.length === 0) {
+            showAlert('El carrito está vacío', 'warning');
+            return;
+        }
+
+        showAlert('Función de checkout en desarrollo', 'info');
+    }
+
+    // Cerrar modal
+    function closeCartModal() {
+        document.getElementById('cartModal').style.display = 'none';
+    }
+
+    // Mostrar alertas
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alertContainer');
+        const alertClass = `alert-${type}`;
+
+        const alertHtml = `
+        <div class="alert ${alertClass}" style="margin-bottom: 15px;">
+            ${message}
+            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+        </div>
+    `;
+
+        alertContainer.innerHTML = alertHtml;
+
+        // Auto-remover después de 5 segundos
+        setTimeout(() => {
+            const alert = alertContainer.querySelector('.alert');
+            if (alert) alert.remove();
+        }, 5000);
+    }
+
+    // Event listeners
+    document.getElementById('viewCartBtn').addEventListener('click', viewCart);
+    document.getElementById('clearCartBtn').addEventListener('click', clearCart);
+    document.getElementById('newCartBtn').addEventListener('click', createNewCart);
+
+    // Cerrar modal al hace click fuera
+    document.getElementById('cartModal').addEventListener('click', (e) => {
+        if (e.target.id === 'cartModal') {
+            closeCartModal();
+        }
+    });
+
+    // Debug: Información del carrito
+    console.log('🛒 Sistema de carrito persistente inicializado');
+    console.log('📱 Funciones disponibles: CartSession.get(), CartSession.clear()');
+
+    // Función global para debug
+    window.cartDebug = function () {
+        console.log('=== CART SESSION DEBUG ===');
+        console.log('Current Cart ID:', currentCartId);
+        console.log('Saved Cart ID:', CartSession.get());
+        console.log('Cart Items:', cartItems.length);
+        console.log('LocalStorage:', {
+            cartId: localStorage.getItem('bbfermentos_cart_id'),
+            timestamp: localStorage.getItem('bbfermentos_cart_timestamp')
+        });
+    };
+</script>

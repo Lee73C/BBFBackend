@@ -1,14 +1,107 @@
-<h2>Error 404 - Página no encontrada</h2>
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-icon">
+            {{#if (eq status 404)}}
+                🔍
+            {{else}}
+                ⚠️
+            {{/if}}
+        </div>
+        
+        <h1 class="error-title">
+            {{#if (eq status 404)}}
+                Producto no encontrado
+            {{else}}
+                Error {{status}}
+            {{/if}}
+        </h1>
+        
+        <div class="error-message">
+            {{#if (eq status 404)}}
+                <p>Lo sentimos, el producto que estás buscando no existe o ha sido eliminado.</p>
+                <p><strong>URL solicitada:</strong> <code>{{url}}</code></p>
+            {{else}}
+                <p>{{message}}</p>
+                {{#if url}}
+                    <p><strong>URL:</strong> <code>{{url}}</code></p>
+                {{/if}}
+            {{/if}}
+        </div>
+        
+        <div class="error-actions">
+            {{#if backUrl}}
+                <a href="{{backUrl}}" class="btn-primary">← Volver al Catálogo</a>
+            {{else}}
+                <a href="/products" class="btn-primary">← Volver al Catálogo</a>
+            {{/if}}
+        </div>
+        
+        {{#if (eq status 404)}}
+            <div class="suggestions">
+                <h3>💡 Sugerencias:</h3>
+                <ul>
+                    <li>Verifica que el enlace esté correcto</li>
+                    <li>El producto podría haber sido eliminado o movido</li>
+                    <li>Explora nuestro catálogo completo</li>
+                    <li>Usa la búsqueda para encontrar productos similares</li>
+                </ul>
+            </div>
+        {{/if}}
+        
+        {{#ifCond status '!==' 404}}
+            <div class="technical-details">
+                <h4>Detalles técnicos:</h4>
+                <p><strong>Código de error:</strong> {{status}}</p>
+                <p><strong>Mensaje:</strong> {{message}}</p>
+                {{#if url}}
+                    <p><strong>Ruta:</strong> {{url}}</p>
+                {{/if}}
+            </div>
+        {{/ifCond}}
+    </div>
+</div>
 
-<p>Lo sentimos, la página que estás buscando no existe.</p>
+<!-- Formulario de búsqueda oculto -->
+<div id="searchForm" style="display: none;">
+    <div class="search-overlay">
+        <div class="search-modal">
+            <h3>🔍 Buscar productos similares</h3>
+            <form action="/products" method="GET">
+                <div class="search-input-group">
+                    <input type="text" 
+                           name="search" 
+                           placeholder="Escribe qué estás buscando..."
+                           class="search-input"
+                           autofocus>
+                    <button type="submit" class="search-btn">Buscar</button>
+                </div>
+            </form>
+            <button onclick="closeSearch()" class="close-search">Cerrar</button>
+        </div>
+    </div>
+</div>
 
-<p><strong>URL solicitada:</strong> {{url}}</p>
+<script>
+function searchSimilar() {
+    document.getElementById('searchForm').style.display = 'block';
+    document.querySelector('.search-input').focus();
+}
 
-<p>Puedes intentar:</p>
-<ul>
-    <li><a href="/">Ir al inicio</a></li>
-    <li><a href="/realtimeproducts">Ver productos en tiempo real</a></li>
-    <li>Verificar que la URL esté escrita correctamente</li>
-</ul>
+function closeSearch() {
+    document.getElementById('searchForm').style.display = 'none';
+}
 
-<p><small>Error {{status}} - {{message}}</small></p>
+// Cerrar modal al hacer click fuera
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('search-overlay')) {
+        closeSearch();
+    }
+});
+
+// Cerrar modal con Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeSearch();
+    }
+});
+</script>

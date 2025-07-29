@@ -1,0 +1,528 @@
+<div class="cart-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid var(--border-color);">
+    <h2>🛒 Carrito: {{cartId}}</h2>
+    <div class="cart-actions">
+        <a href="/products" class="btn-secondary" style="text-decoration: none; margin-right: 10px;">← Seguir Comprando</a>
+        {{#if hasProducts}}
+            <button onclick="clearCart()" class="btn-danger">Vaciar Carrito</button>
+        {{/if}}
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+{{#if error}}
+    <div class="alert alert-danger">
+        <strong>Error:</strong> {{error}}
+    </div>
+{{/if}}
+
+{{#if hasProducts}}
+    <!-- Productos en el carrito -->
+    <div id="cartProducts">
+        {{#each cart.products}}
+            <div class="cart-product-item" data-product-id="{{this.product._id}}" data-quantity="{{this.quantity}}" data-price="{{this.product.price}}">
+                <div class="cart-product-card">
+                    <div class="cart-product-info">
+                        <div class="cart-product-image">
+                            {{#if this.product.thumbnails}}
+                                {{#if this.product.thumbnails.length}}
+                                    {{#each this.product.thumbnails}}
+                                        {{#if @first}}
+                                            <img src="{{this}}" 
+                                                 alt="{{../product.title}}" 
+                                                 class="product-image-small" 
+                                                 onerror="this.style.display='none';">
+                                        {{/if}}
+                                    {{/each}}
+                                {{else}}
+                                    <div class="no-image">📦</div>
+                                {{/if}}
+                            {{else}}
+                                <div class="no-image">📦</div>
+                            {{/if}}
+                        </div>
+                        
+                        <div class="cart-product-details">
+                            <h4 class="cart-product-title">{{this.product.title}}</h4>
+                            <p class="cart-product-description">{{this.product.description}}</p>
+                            <div class="cart-product-meta">
+                                <span class="product-price">${{this.product.price}} c/u</span>
+                                <span class="product-category">{{this.product.category}}</span>
+                                <span class="product-code">Código: {{this.product.code}}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cart-product-actions">
+                        <div class="quantity-controls">
+                            <label>Cantidad:</label>
+                            <div class="quantity-input-group">
+                                <button onclick="updateQuantityByButton('{{this.product._id}}', -1)" class="btn-quantity">-</button>
+                                <input type="number" 
+                                       id="quantity-{{this.product._id}}" 
+                                       value="{{this.quantity}}" 
+                                       min="1" 
+                                       max="{{this.product.stock}}"
+                                       onchange="updateQuantity('{{this.product._id}}', this.value)"
+                                       class="quantity-input"
+                                       data-product-price="{{this.product.price}}">
+                                <button onclick="updateQuantityByButton('{{this.product._id}}', 1)" class="btn-quantity">+</button>
+                            </div>
+                            <small class="stock-info">Stock disponible: {{this.product.stock}}</small>
+                        </div>
+                        
+                        <div class="subtotal-section">
+                            <div class="subtotal">
+                                <strong>Subtotal: $<span id="subtotal-{{this.product._id}}">{{multiply this.product.price this.quantity}}</span></strong>
+                            </div>
+                            <button onclick="removeFromCart('{{this.product._id}}')" class="btn-danger remove-product-btn">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {{/each}}
+    </div>
+    
+    <!-- Resumen del carrito -->
+    <div class="cart-summary">
+        <div class="summary-content">
+            <div class="summary-row">
+                <span>Total de productos:</span>
+                <span id="totalItems">{{#if totalItems}}{{totalItems}}{{else}}0{{/if}}</span>
+            </div>
+            <div class="summary-row total-row">
+                <span><strong>Total a pagar:</strong></span>
+                <span id="totalAmount"><strong>$<span id="calculatedTotal">{{total}}</span></strong></span>
+            </div>
+        </div>
+        
+        <div class="checkout-actions">
+            <button onclick="proceedToCheckout()" class="btn-success checkout-btn">
+                💳 Proceder al Pago
+            </button>
+            <button onclick="saveForLater()" class="btn-secondary">
+                💾 Guardar para después
+            </button>
+        </div>
+    </div>
+    
+{{else}}
+    <!-- Carrito vacío -->
+    <div class="empty-cart">
+        <div class="empty-cart-icon">🛒</div>
+        <h3>Tu carrito está vacío</h3>
+        <p>No hay productos en este carrito. ¡Agrega algunos productos para comenzar!</p>
+        <a href="/products" class="btn-primary">🛍️ Ir de Compras</a>
+    </div>
+{{/if}}
+
+<script>
+const cartId = '{{cartId}}';
+
+// Funciones de cálculo
+function calculateTotals() {
+    let totalItems = 0;
+    let totalAmount = 0;
+    
+    // Obtener todos los productos del carrito
+    const productItems = document.querySelectorAll('.cart-product-item');
+    
+    console.log('🧮 Calculando totales...');
+    console.log('📦 Productos encontrados:', productItems.length);
+    
+    productItems.forEach((item, index) => {
+        const quantityInput = item.querySelector('.quantity-input');
+        const price = parseFloat(item.dataset.price);
+        
+        if (quantityInput && price) {
+
+            const quantity = parseInt(quantityInput.value) || 0;
+            const subtotal = price * quantity;
+            
+            console.log(`Producto ${index + 1}:`, {
+                id: item.dataset.productId,
+                quantity,
+                price,
+                subtotal
+            });
+            
+            totalItems += quantity;
+            totalAmount += subtotal;
+            
+
+            const subtotalElement = item.querySelector(`#subtotal-${item.dataset.productId}`);
+            if (subtotalElement) {
+                subtotalElement.textContent = Math.round(subtotal);
+                console.log(`💰 Subtotal actualizado para ${item.dataset.productId}: ${subtotal}`);
+            }
+            
+
+            item.dataset.quantity = quantity;
+        }
+    });
+    
+    console.log('📊 Totales calculados:', { totalItems, totalAmount });
+    
+
+    const totalItemsElement = document.getElementById('totalItems');
+    const calculatedTotalElement = document.getElementById('calculatedTotal');
+    
+    if (totalItemsElement) {
+        totalItemsElement.textContent = totalItems;
+        console.log('🔢 Total items actualizado en UI:', totalItems);
+    }
+    
+    if (calculatedTotalElement) {
+        calculatedTotalElement.textContent = Math.round(totalAmount);
+        console.log('💵 Total amount actualizado en UI:', totalAmount);
+    }
+    
+    return { totalItems, totalAmount };
+}
+
+async function syncWithServer() {
+    try {
+        console.log('🔄 Sincronizando con servidor...');
+        const response = await fetch(`/api/carts/${cartId}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            const serverCart = data.cart;
+            
+            console.log('📡 Datos del servidor:', serverCart);
+            
+
+            serverCart.products.forEach(serverItem => {
+                const quantityInput = document.getElementById(`quantity-${serverItem.product._id}`);
+                const clientQuantity = parseInt(quantityInput?.value || 0);
+                
+                if (clientQuantity !== serverItem.quantity) {
+                    console.log(`⚠️ Diferencia detectada en ${serverItem.product._id}: cliente=${clientQuantity}, servidor=${serverItem.quantity}`);
+                    if (quantityInput) {
+                        quantityInput.value = serverItem.quantity;
+                        quantityInput.defaultValue = serverItem.quantity;
+                    }
+                }
+            });
+            
+
+            calculateTotals();
+        }
+    } catch (error) {
+        console.error('❌ Error sincronizando con servidor:', error);
+    }
+}
+
+function handleQuantityInputChange(productId) {
+    const quantityInput = document.getElementById(`quantity-${productId}`);
+    if (!quantityInput) return;
+    
+    const newQuantity = parseInt(quantityInput.value);
+    const oldQuantity = parseInt(quantityInput.defaultValue || 1);
+    
+    // Solo actualizar si realmente cambió
+    if (newQuantity !== oldQuantity) {
+        console.log(`🔄 Cantidad cambió de ${oldQuantity} a ${newQuantity} para ${productId}`);
+        updateQuantity(productId, newQuantity);
+    }
+}
+
+// Ejecutar cálculo al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Página cargada, calculando totales...');
+    
+    // Pequeño delay para asegurar que todo esté renderizado
+    setTimeout(() => {
+        calculateTotals();
+    }, 100);
+});
+
+// Actualizar cantidad de producto
+async function updateQuantity(productId, newQuantity) {
+    newQuantity = parseInt(newQuantity);
+    
+    if (newQuantity < 1) {
+        if (confirm('¿Quieres eliminar este producto del carrito?')) {
+            await removeFromCart(productId);
+        } else {
+            // Restaurar valor anterior
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            if (quantityInput) {
+                quantityInput.value = quantityInput.defaultValue || 1;
+            }
+            calculateTotals(); // Recalcular con valor restaurado
+        }
+        return;
+    }
+    
+    try {
+        console.log(`🔄 Actualizando cantidad de ${productId} a ${newQuantity}`);
+        
+        const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ quantity: newQuantity })
+        });
+        
+        if (response.ok) {
+            console.log('✅ Cantidad actualizada en servidor');
+            
+            // Actualizar el dataset del elemento inmediatamente
+            const productItem = document.querySelector(`[data-product-id="${productId}"]`);
+            if (productItem) {
+                productItem.dataset.quantity = newQuantity;
+                console.log(`📦 Dataset actualizado: quantity=${newQuantity}`);
+            }
+            
+            // Actualizar el input visualmente
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            if (quantityInput) {
+                quantityInput.value = newQuantity;
+                quantityInput.defaultValue = newQuantity; // Para restaurar en caso de error
+            }
+            
+            // Recalcular totales inmediatamente
+            calculateTotals();
+            showAlert('Cantidad actualizada', 'success');
+            
+        } else {
+            const error = await response.json();
+            throw new Error(error.message);
+        }
+    } catch (error) {
+        console.error('❌ Error actualizando cantidad:', error);
+        showAlert('Error: ' + error.message, 'danger');
+        
+        // Restaurar valor anterior en caso de error
+        const quantityInput = document.getElementById(`quantity-${productId}`);
+        if (quantityInput) {
+            quantityInput.value = quantityInput.defaultValue || 1;
+        }
+        calculateTotals();
+    }
+}
+
+// Eliminar producto del carrito
+async function removeFromCart(productId) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showAlert('Producto eliminado del carrito', 'success');
+            // Recargar página después de un momento
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            const error = await response.json();
+            showAlert('Error: ' + error.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error eliminando producto:', error);
+        showAlert('Error de conexión', 'danger');
+    }
+}
+
+// Vaciar carrito completo
+async function clearCart() {
+    if (!confirm('¿Estás seguro de que quieres vaciar todo el carrito?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/carts/${cartId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showAlert('Carrito vaciado', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            const error = await response.json();
+            showAlert('Error: ' + error.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error vaciando carrito:', error);
+        showAlert('Error de conexión', 'danger');
+    }
+}
+
+// Actualizar display del carrito
+async function updateCartDisplay() {
+    try {
+        const response = await fetch(`/api/carts/${cartId}`);
+        if (response.ok) {
+            const data = await response.json();
+            const cart = data.cart;
+            
+            // Actualizar cantidades en los inputs
+            cart.products.forEach(item => {
+                const quantityInput = document.getElementById(`quantity-${item.product._id}`);
+                if (quantityInput) {
+                    quantityInput.value = item.quantity;
+                }
+            });
+            
+            // Recalcular totales después de actualizar
+            calculateTotals();
+        }
+    } catch (error) {
+        console.error('Error actualizando carrito:', error);
+    }
+}
+
+// Proceder al checkout
+function proceedToCheckout() {
+    const totals = calculateTotals();
+    if (totals.totalItems === 0) {
+        showAlert('El carrito está vacío', 'warning');
+        return;
+    }
+    showAlert('Función de checkout en desarrollo', 'info');
+    // Implementar checkout
+}
+
+// Guardar para después
+function saveForLater() {
+    showAlert('Carrito guardado en tu cuenta', 'success');
+    // Implementar guardar para después
+}
+
+// Mostrar alertas
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertClass = `alert-${type}`;
+    
+    const alertHtml = `
+        <div class="alert ${alertClass}" style="margin-bottom: 15px;">
+            ${message}
+            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+        </div>
+    `;
+    
+    alertContainer.innerHTML = alertHtml;
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) alert.remove();
+    }, 5000);
+}
+
+// Debug: Mostrar información del carrito en consola
+console.log('🛒 Carrito ID:', cartId);
+console.log('📊 Información de debug disponible en window.cartDebug');
+
+// Función de debug
+window.cartDebug = function() {
+    const productItems = document.querySelectorAll('.cart-product-item');
+    console.log('=== CART DEBUG INFO ===');
+    console.log('Products found:', productItems.length);
+    
+    productItems.forEach((item, index) => {
+        console.log(`Product ${index + 1}:`, {
+            id: item.dataset.productId,
+            quantity: item.dataset.quantity,
+            price: item.dataset.price,
+            currentInputValue: item.querySelector('.quantity-input')?.value
+        });
+    });
+    
+    return calculateTotals();
+};
+
+function setupQuantityControls() {
+    // Configurar listeners para inputs de cantidad
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        const productId = input.id.replace('quantity-', '');
+        
+        // Al cambiar el valor manualmente
+        input.addEventListener('change', () => {
+            handleQuantityInputChange(productId);
+        });
+        
+        // Al presionar Enter
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleQuantityInputChange(productId);
+            }
+        });
+    });
+}
+
+window.updateQuantityByButton = function(productId, delta) {
+    const quantityInput = document.getElementById(`quantity-${productId}`);
+    if (!quantityInput) return;
+    
+    const currentQuantity = parseInt(quantityInput.value) || 1;
+    const newQuantity = currentQuantity + delta;
+    
+    console.log(`🔲 Botón presionado: ${productId}, delta: ${delta}, nueva cantidad: ${newQuantity}`);
+    
+    if (newQuantity < 1) {
+        if (confirm('¿Quieres eliminar este producto del carrito?')) {
+            removeFromCart(productId);
+        }
+        return;
+    }
+    
+    // Actualizar input visualmente primero
+    quantityInput.value = newQuantity;
+    
+    // Recalcular totales inmediatamente para feedback visual
+    calculateTotals();
+    
+    // Luego sincronizar con servidor
+    updateQuantity(productId, newQuantity);
+};
+
+// Inicializar cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Página cargada, configurando carrito...');
+    
+    // Configurar controles de cantidad
+    setupQuantityControls();
+    
+    // Calcular totales iniciales
+    setTimeout(() => {
+        calculateTotals();
+    }, 100);
+    
+
+    setInterval(syncWithServer, 30000);
+});
+
+// Debug
+window.cartDebugAdvanced = function() {
+    console.log('=== CART DEBUG AVANZADO ===');
+    
+    const productItems = document.querySelectorAll('.cart-product-item');
+    console.log('Productos en DOM:', productItems.length);
+    
+    productItems.forEach((item, index) => {
+        const quantityInput = item.querySelector('.quantity-input');
+        console.log(`Producto ${index + 1}:`, {
+            id: item.dataset.productId,
+            datasetQuantity: item.dataset.quantity,
+            inputValue: quantityInput?.value,
+            inputDefaultValue: quantityInput?.defaultValue,
+            price: item.dataset.price
+        });
+    });
+    
+    return calculateTotals();
+};
+</script>

@@ -1,97 +1,73 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { engine } from 'express-handlebars';
-import path from 'path';
+import dotenv from 'dotenv';
 
-// Importar routers
+// Configuraciones
+import connectDB, { waitForConnection } from './src/config/database.js';
+import { configureExpress } from './src/config/express.js';
+import { configureHandlebars } from './src/config/handlebars.js';
+import { configureWebSockets } from './src/config/websockets.js';
+
+// Middleware
+import { globalErrorHandler, notFoundHandler } from './src/middleware/errorHandler.js';
+
+// Rutas
 import productsRouter from './src/routes/products.router.js';
 import cartsRouter from './src/routes/carts.router.js';
 import viewsRouter from './src/routes/views.router.js';
 
-// Importar managers para WebSockets
-import ProductManager from "./src/managers/ProductManager.js";
+// Utils
+import { logger } from './src/utils/logger.js';
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer);
+// Configurar entorno
+dotenv.config();
 
-// Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public')); // Para servir archivos estáticos
+// Función principal asíncrona
+const startServer = async () => {
+    try {
+        // Crear aplicación
+        const app = express();
+        const httpServer = createServer(app);
+        const io = new Server(httpServer);
 
-// Configuración de Handlebars
-app.engine('handlebars', engine({
-  defaultLayout: 'main',
-  layoutsDir: path.join(process.cwd(), 'src/views/layouts'),
-  viewsDir: path.join(process.cwd(), 'src/views')
-}));
+        // Configurar aplicación
+        configureExpress(app);
+        configureHandlebars(app);
 
-app.set('view engine', 'handlebars');
-app.set('views', path.join(process.cwd(), 'src/views'));
+        // CONECTAR BASE DE DATOS ANTES DE CONFIGURAR RUTAS
+        console.log('🔌 Conectando a base de datos...');
+        await connectDB();
+        
+        // ESPERAR A QUE LA CONEXIÓN ESTÉ LISTA
+        await waitForConnection();
+        console.log('✅ Base de datos lista, configurando rutas...');
 
-// Hacer io accesible en las rutas
-app.set('io', io);
+        // Configurar rutas DESPUÉS de que la DB esté conectada
+        app.set('io', io);
+        app.use('/', viewsRouter);
+        app.use('/api/products', productsRouter);
+        app.use('/api/carts', cartsRouter);
 
-// Configurar rutas
-app.use('/', viewsRouter);                    // Rutas de vistas (home, realtimeproducts)
-app.use('/api/products', productsRouter);     // Rutas de productos
-app.use('/api/carts', cartsRouter);           // Rutas de carritos
+        // Configurar WebSockets
+        configureWebSockets(io);
 
-// CONFIGURACIÓN DE WEBSOCKETS
-const productManager = new ProductManager();
+        // Manejo de errores
+        app.use(globalErrorHandler);
+        app.use('*', notFoundHandler);
 
-io.on('connection', (socket) => {
-    console.log('Usuario conectado:', socket.id);
-    
-    // Enviar productos actuales al cliente recién conectado
-    productManager.getProducts().then(products => {
-        socket.emit('updateProducts', products);
-    });
-    
-    // Escuchar cuando un cliente se desconecte
-    socket.on('disconnect', () => {
-        console.log('Usuario desconectado:', socket.id);
-    });
-    
-    // Escuchar eventos desde el cliente
-    socket.on('addProduct', async (productData) => {
-        try {
-            // PROCESAR THUMBNAILS IGUAL QUE EN HTTP
-            if (productData.thumbnails && Array.isArray(productData.thumbnails)) {
-                productData.thumbnails = productData.thumbnails
-                    .filter(filename => filename && filename.trim())
-                    .map(filename => {
-                        // Si ya tiene /img/, no agregar de nuevo
-                        if (filename.startsWith('/img/')) {
-                            return filename;
-                        }
-                        // Si es solo el nombre del archivo, agregar /img/
-                        return `/img/${filename.trim()}`;
-                    });
-            }
-            
-            const newProduct = await productManager.addProduct(productData);
-            const products = await productManager.getProducts();
-            io.emit('updateProducts', products);
-        } catch (error) {
-            socket.emit('error', { message: error.message });
-        }
-    });
-    
-    socket.on('deleteProduct', async (productId) => {
-        try {
-            await productManager.deleteProductById(productId);
-            const products = await productManager.getProducts();
-            io.emit('updateProducts', products);
-        } catch (error) {
-            socket.emit('error', { message: error.message });
-        }
-    });
-});
+        // Iniciar servidor
+        const PORT = process.env.PORT || 8080;
+        httpServer.listen(PORT, '0.0.0.0', () => {
+            logger.success(`Servidor iniciado en puerto ${PORT}`);
+            logger.info(`Accede desde: http://localhost:${PORT}`);
+        });
 
-// Iniciar servidor
-httpServer.listen(8080, () => {
-    console.log(`Servidor con WebSockets iniciado en puerto 8080`);
-});
+    } catch (error) {
+        console.error('💥 Error fatal iniciando servidor:', error);
+        process.exit(1);
+    }
+};
+
+// Iniciar el servidor
+startServer();

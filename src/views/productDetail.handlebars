@@ -1,0 +1,501 @@
+
+<!-- Breadcrumb de navegación -->
+<nav class="breadcrumb">
+    <a href="/products">🏠 Catálogo</a>
+    <span class="breadcrumb-separator">></span>
+    <a href="/products?query={{breadcrumb.category}}">{{breadcrumb.category}}</a>
+    <span class="breadcrumb-separator">></span>
+    <span class="breadcrumb-current">{{breadcrumb.title}}</span>
+</nav>
+
+<!-- Status del carrito -->
+<div id="cartStatus" class="cart-status-bar">
+    <div class="cart-info">
+        <strong>🛒 Carrito:</strong> <span id="cartCount">0</span> productos
+    </div>
+    <div class="cart-actions">
+        <button id="viewCartBtn" class="btn-primary">Ver Carrito</button>
+    </div>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+<!-- Contenido principal del producto -->
+<div class="product-detail-container">
+    
+    <!-- Información principal del producto -->
+    <div class="product-main-info">
+        
+        <!-- Galería de imágenes -->
+        <div class="product-gallery">
+            {{#if product.thumbnails.length}}
+                <div class="main-image">
+                    <img src="{{first product.thumbnails}}" 
+                         alt="{{product.title}}" 
+                         id="mainProductImage"
+                         class="main-product-image"
+                         onerror="this.src='/img/no-image.png';">
+                </div>
+                {{#if (gt product.thumbnails.length 1)}}
+                    <div class="thumbnail-gallery">
+                        {{#each product.thumbnails}}
+                            <img src="{{this}}" 
+                                 alt="{{../product.title}}" 
+                                 class="thumbnail-image {{#if @first}}active{{/if}}"
+                                 onclick="changeMainImage('{{this}}')"
+                                 onerror="this.style.display='none';">
+                        {{/each}}
+                    </div>
+                {{/if}}
+            {{else}}
+                <div class="no-image-placeholder">
+                    <div class="no-image-icon">📦</div>
+                    <p>Sin imagen disponible</p>
+                </div>
+            {{/if}}
+        </div>
+        
+        <!-- Información del producto -->
+        <div class="product-info">
+            <div class="product-header">
+                <h1 class="product-title">{{product.title}}</h1>
+                <div class="product-price">
+                    {{formatPrice product.price}}
+                </div>
+            </div>
+            
+            <!-- Estado y disponibilidad -->
+            <div class="product-status">
+                <div class="status-badges">
+                    <span class="status-badge {{#if product.status}}status-active{{else}}status-inactive{{/if}}">
+                        {{#if product.status}}✅ Activo{{else}}❌ Inactivo{{/if}}
+                    </span>
+                    
+                    <span class="stock-badge {{stockClass product.stock}}">
+                        {{stockStatus product.stock}} ({{product.stock}} unidades)
+                    </span>
+                    
+                    {{#if (isNew product.createdAt)}}
+                        <span class="new-badge">🆕 ¡Nuevo!</span>
+                    {{/if}}
+                </div>
+            </div>
+            
+            <!-- Descripción -->
+            <div class="product-description">
+                <h3>📋 Descripción</h3>
+                <p>{{product.description}}</p>
+            </div>
+            
+            <!-- Detalles técnicos -->
+            <div class="product-details">
+                <h3>📊 Detalles</h3>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Categoría:</strong>
+                        <a href="/products?query={{product.category}}" class="category-link">
+                            {{product.category}}
+                        </a>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Código:</strong>
+                        <span class="product-code">{{product.code}}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Stock disponible:</strong>
+                        <span class="{{stockClass product.stock}}">{{product.stock}} unidades</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Estado:</strong>
+                        <span class="{{#if product.status}}text-success{{else}}text-danger{{/if}}">
+                            {{#if product.status}}Disponible{{else}}No disponible{{/if}}
+                        </span>
+                    </div>
+                    {{#if product.createdAt}}
+                        <div class="detail-item">
+                            <strong>Agregado:</strong>
+                            <span>{{formatDate product.createdAt}}</span>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+            
+            <!-- Controles de compra -->
+            <div class="purchase-controls">
+                {{#if (and product.status (gt product.stock 0))}}
+                    <div class="quantity-selector">
+                        <label for="productQuantity">Cantidad:</label>
+                        <div class="quantity-input-group">
+                            <button onclick="decreaseQuantity()" class="btn-quantity">-</button>
+                            <input type="number" 
+                                   id="productQuantity" 
+                                   min="1" 
+                                   max="{{product.stock}}" 
+                                   value="1" 
+                                   class="quantity-input">
+                            <button onclick="increaseQuantity()" class="btn-quantity">+</button>
+                        </div>
+                        <small class="stock-info">Máximo: {{product.stock}} unidades</small>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button onclick="addToCart()" class="btn-primary add-to-cart-main">
+                            🛒 Agregar al Carrito
+                        </button>
+                        <button onclick="buyNow()" class="btn-success">
+                            ⚡ Comprar Ahora
+                        </button>
+                    </div>
+                {{else}}
+                    <div class="unavailable-product">
+                        {{#if product.status}}
+                            <div class="out-of-stock-message">
+                                <h3>😔 Sin stock disponible</h3>
+                                <p>Este producto está temporalmente agotado.</p>
+                                <button onclick="notifyWhenAvailable()" class="btn-secondary">
+                                    🔔 Notificarme cuando esté disponible
+                                </button>
+                            </div>
+                        {{else}}
+                            <div class="inactive-product-message">
+                                <h3>❌ Producto no disponible</h3>
+                                <p>Este producto no está actualmente disponible para la venta.</p>
+                            </div>
+                        {{/if}}
+                    </div>
+                {{/if}}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Productos relacionados -->
+    {{#if relatedProducts.length}}
+        <div class="related-products-section">
+            <h2>🔗 Productos relacionados</h2>
+            <div class="related-products-grid">
+                {{#each relatedProducts}}
+                    <div class="related-product-card">
+                        <a href="/products/{{this._id}}" class="product-link">
+                            {{#if this.thumbnails.length}}
+                                <img src="{{first this.thumbnails}}" 
+                                     alt="{{this.title}}" 
+                                     class="related-product-image"
+                                     onerror="this.src='/img/no-image.png';">
+                            {{else}}
+                                <div class="related-product-no-image">📦</div>
+                            {{/if}}
+                            <div class="related-product-info">
+                                <h4>{{this.title}}</h4>
+                                <p class="related-product-price">{{formatPrice this.price}}</p>
+                                <span class="related-product-stock {{stockClass this.stock}}">
+                                    {{stockStatus this.stock}}
+                                </span>
+                            </div>
+                        </a>
+                    </div>
+                {{/each}}
+            </div>
+        </div>
+    {{/if}}
+    
+    <!-- Acciones adicionales -->
+    <div class="additional-actions">
+        <a href="/products" class="btn-secondary">← Volver al Catálogo</a>
+        <a href="/products?query={{product.category}}" class="btn-info">
+            Ver más en {{product.category}}
+        </a>
+        {{#if categories.length}}
+            <button onclick="toggleCategoriesMenu()" class="btn-outline">
+                📂 Explorar Categorías
+            </button>
+        {{/if}}
+    </div>
+    
+    <!-- Menú desplegable de categorías -->
+    {{#if categories.length}}
+        <div id="categoriesMenu" class="categories-menu" style="display: none;">
+            <h3>📂 Explorar por categorías:</h3>
+            <div class="categories-grid">
+                {{#each categories}}
+                    <a href="/products?query={{this}}" class="category-item">
+                        {{this}}
+                    </a>
+                {{/each}}
+            </div>
+        </div>
+    {{/if}}
+</div>
+
+
+
+<script>
+
+// Variables globales
+const productData = {
+    id: '{{cartData.productId}}',
+    title: '{{cartData.productTitle}}',
+    price: {{cartData.productPrice}},
+    stock: {{cartData.productStock}},
+    status: {{cartData.productStatus}}
+};
+
+let currentCartId = null;
+
+// Inicializar carrito al cargar la página
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeCart();
+});
+
+// Funciones de cantidad
+function increaseQuantity() {
+    const input = document.getElementById('productQuantity');
+    const currentValue = parseInt(input.value);
+    const maxValue = parseInt(input.max);
+    
+    if (currentValue < maxValue) {
+        input.value = currentValue + 1;
+    }
+}
+
+function decreaseQuantity() {
+    const input = document.getElementById('productQuantity');
+    const currentValue = parseInt(input.value);
+    
+    if (currentValue > 1) {
+        input.value = currentValue - 1;
+    }
+}
+
+// Cambiar imagen principal
+function changeMainImage(newSrc) {
+    const mainImage = document.getElementById('mainProductImage');
+    mainImage.src = newSrc;
+    
+    // Actualizar thumbnail activo
+    document.querySelectorAll('.thumbnail-image').forEach(thumb => {
+        thumb.classList.remove('active');
+        if (thumb.src === newSrc) {
+            thumb.classList.add('active');
+        }
+    });
+}
+
+// Agregar al carrito
+async function addToCart() {
+    if (!productData.status) {
+        showAlert('Este producto no está disponible', 'danger');
+        return;
+    }
+    
+    if (productData.stock <= 0) {
+        showAlert('Este producto no tiene stock disponible', 'danger');
+        return;
+    }
+    
+    const quantity = parseInt(document.getElementById('productQuantity').value);
+    
+    if (quantity > productData.stock) {
+        showAlert(`Solo hay ${productData.stock} unidades disponibles`, 'danger');
+        return;
+    }
+    
+    if (!currentCartId) {
+        showAlert('Error: Carrito no inicializado', 'danger');
+        await initializeCart();
+        return;
+    }
+    
+    try {
+        // Agregar productos uno por uno según la cantidad
+        for (let i = 0; i < quantity; i++) {
+            const response = await fetch(`/api/carts/${currentCartId}/product/${productData.id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message);
+            }
+        }
+        
+        showAlert(`${quantity} x ${productData.title} agregado al carrito`, 'success');
+        
+        // Resetear cantidad
+        document.getElementById('productQuantity').value = 1;
+        
+        // Actualizar contador del carrito
+        await updateCartDisplay();
+        
+        // Guardar carrito en sesión
+        CartSession.save(currentCartId);
+        
+    } catch (error) {
+        console.error('Error agregando al carrito:', error);
+        showAlert('Error al agregar producto: ' + error.message, 'danger');
+    }
+}
+
+// Comprar ahora
+async function buyNow() {
+    await addToCart();
+    // Redirigir al carrito después de un momento
+    setTimeout(() => {
+        window.location.href = `/carts/${currentCartId}`;
+    }, 1000);
+}
+
+// Notificar cuando esté disponible
+function notifyWhenAvailable() {
+    showAlert('Función de notificaciones en desarrollo', 'info');
+}
+
+// Toggle del menú de categorías
+function toggleCategoriesMenu() {
+    const menu = document.getElementById('categoriesMenu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// Funciones de carrito
+const CartSession = {
+    save: function(cartId) {
+        localStorage.setItem('bbfermentos_cart_id', cartId);
+        localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
+    },
+    
+    get: function() {
+        const cartId = localStorage.getItem('bbfermentos_cart_id');
+        const timestamp = localStorage.getItem('bbfermentos_cart_timestamp');
+        
+        if (cartId && timestamp) {
+            const age = Date.now() - parseInt(timestamp);
+            const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+            
+            if (age < maxAge) {
+                return cartId;
+            } else {
+                this.clear();
+            }
+        }
+        return null;
+    },
+    
+    clear: function() {
+        localStorage.removeItem('bbfermentos_cart_id');
+        localStorage.removeItem('bbfermentos_cart_timestamp');
+    },
+    
+    verify: async function(cartId) {
+        try {
+            const response = await fetch(`/api/carts/${cartId}`);
+            return response.ok;
+        } catch (error) {
+            return false;
+        }
+    }
+};
+
+async function initializeCart() {
+    try {
+        const savedCartId = CartSession.get();
+        
+        if (savedCartId) {
+            const cartExists = await CartSession.verify(savedCartId);
+            
+            if (cartExists) {
+                currentCartId = savedCartId;
+                await updateCartDisplay();
+                return;
+            } else {
+                CartSession.clear();
+            }
+        }
+        
+        // Crear nuevo carrito
+        const response = await fetch('/api/carts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            currentCartId = data.cart._id;
+            CartSession.save(currentCartId);
+            updateCartDisplay();
+        }
+    } catch (error) {
+        console.error('Error inicializando carrito:', error);
+    }
+}
+
+async function updateCartDisplay() {
+    if (!currentCartId) return;
+    
+    try {
+        const response = await fetch(`/api/carts/${currentCartId}`);
+        if (response.ok) {
+            const data = await response.json();
+            const cart = data.cart;
+            
+            const totalItems = cart.products?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+            document.getElementById('cartCount').textContent = totalItems;
+            
+            if (totalItems > 0) {
+                CartSession.save(currentCartId);
+            }
+        }
+    } catch (error) {
+        console.error('Error actualizando carrito:', error);
+    }
+}
+
+function viewCart() {
+    if (currentCartId) {
+        window.location.href = `/carts/${currentCartId}`;
+    } else {
+        showAlert('Carrito no inicializado', 'danger');
+    }
+}
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertClass = `alert-${type}`;
+    
+    const alertHtml = `
+        <div class="alert ${alertClass}" style="margin-bottom: 15px;">
+            ${message}
+            <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>
+        </div>
+    `;
+    
+    alertContainer.innerHTML = alertHtml;
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) alert.remove();
+    }, 5000);
+}
+
+// Event listeners
+document.getElementById('viewCartBtn').addEventListener('click', viewCart);
+
+// Validar input de cantidad
+document.getElementById('productQuantity').addEventListener('change', function() {
+    const value = parseInt(this.value);
+    const max = parseInt(this.max);
+    
+    if (value > max) {
+        this.value = max;
+        showAlert(`Cantidad máxima disponible: ${max}`, 'warning');
+    } else if (value < 1) {
+        this.value = 1;
+    }
+});
+
+console.log('🛒 Vista de producto detallado inicializada');
+console.log('📦 Producto:', productData);
+</script>
