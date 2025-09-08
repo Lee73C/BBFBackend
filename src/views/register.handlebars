@@ -1,0 +1,162 @@
+<div class="auth-container">
+    <div class="auth-card register-card">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <img src="/img/logo.png" alt="BBFermentos" class="logo-img">
+                <h1>BBFermentos</h1>
+            </div>
+            <h2>Crear Cuenta</h2>
+            <p>Únete a nuestra comunidad de productos fermentados</p>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
+
+        <form id="registerForm" class="auth-form">
+            <div class="form-row">
+                <div class="form-group half-width">
+                    <label for="firstName">
+                        <span class="label-icon">👤</span>
+                        Nombre
+                    </label>
+                    <input 
+                        type="text" 
+                        id="firstName" 
+                        name="first_name" 
+                        required 
+                        class="form-input"
+                        placeholder="Juan"
+                        autocomplete="given-name">
+                    <div class="field-error" id="firstNameError"></div>
+                </div>
+
+                <div class="form-group half-width">
+                    <label for="lastName">
+                        <span class="label-icon">👤</span>
+                        Apellido
+                    </label>
+                    <input 
+                        type="text" 
+                        id="lastName" 
+                        name="last_name" 
+                        required 
+                        class="form-input"
+                        placeholder="Pérez"
+                        autocomplete="family-name">
+                    <div class="field-error" id="lastNameError"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">
+                    <span class="label-icon">📧</span>
+                    Correo Electrónico
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    class="form-input"
+                    placeholder="tu@email.com"
+                    autocomplete="email">
+                <div class="field-error" id="emailError"></div>
+                <div class="field-help">Usaremos este email para confirmaciones de pedidos</div>
+            </div>
+
+            <div class="form-group">
+                <label for="age">
+                    <span class="label-icon">🎂</span>
+                    Edad
+                </label>
+                <input 
+                    type="number" 
+                    id="age" 
+                    name="age" 
+                    min="18" 
+                    max="120" 
+                    class="form-input"
+                    placeholder="25">
+                <div class="field-error" id="ageError"></div>
+                <div class="field-help">Debes ser mayor de 18 años</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">
+                    <span class="label-icon">🔒</span>
+                    Contraseña
+                </label>
+                <div class="password-field">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        class="form-input"
+                        placeholder="Mínimo 6 caracteres"
+                        autocomplete="new-password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                        👁️
+                    </button>
+                </div>
+                <div class="field-error" id="passwordError"></div>
+                <div class="password-strength" id="passwordStrength"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">
+                    <span class="label-icon">🔒</span>
+                    Confirmar Contraseña
+                </label>
+                <div class="password-field">
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        required 
+                        class="form-input"
+                        placeholder="Repite tu contraseña"
+                        autocomplete="new-password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">
+                        👁️
+                    </button>
+                </div>
+                <div class="field-error" id="confirmPasswordError"></div>
+            </div>
+
+            <button type="submit" class="btn-auth btn-primary" id="registerBtn">
+                <span class="btn-text">Crear Mi Cuenta</span>
+                <span class="btn-spinner" style="display: none;">🔄</span>
+            </button>
+        </form>
+
+        <div class="auth-divider">
+            <span>o</span>
+        </div>
+
+        <div class="auth-footer">
+            <p>¿Ya tienes una cuenta?</p>
+            <a href="/login" class="btn-auth btn-secondary">
+                Iniciar Sesión
+            </a>
+        </div>
+
+        <div class="auth-benefits">
+            <h4>🎉 Beneficios de crear una cuenta</h4>
+            <ul>
+                <li>🛒 Carrito persistente entre sesiones</li>
+                <li>📋 Historial de pedidos</li>
+                <li>🎁 Ofertas exclusivas para miembros</li>
+                <li>📧 Notificaciones de productos nuevos</li>
+                <li>⚡ Checkout más rápido</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script src="/js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    initializeRegisterForm();
+});
+</script>

@@ -1,0 +1,96 @@
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <img src="/img/logo.png" alt="BBFermentos" class="logo-img">
+                <h1>BBFermentos</h1>
+            </div>
+            <h2>Iniciar Sesión</h2>
+            <p>Accede a tu cuenta para continuar comprando</p>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
+
+        <form id="loginForm" class="auth-form">
+            <div class="form-group">
+                <label for="email">
+                    <span class="label-icon">📧</span>
+                    Correo Electrónico
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    class="form-input"
+                    placeholder="tu@email.com"
+                    autocomplete="email">
+                <div class="field-error" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">
+                    <span class="label-icon">🔒</span>
+                    Contraseña
+                </label>
+                <div class="password-field">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        class="form-input"
+                        placeholder="Tu contraseña"
+                        autocomplete="current-password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password')">
+                        👁️
+                    </button>
+                </div>
+                <div class="field-error" id="passwordError"></div>
+            </div>
+
+            <div class="form-options">
+                <label class="checkbox-container">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <span class="checkmark"></span>
+                    Recordarme
+                </label>
+                <a href="#" class="forgot-password">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <button type="submit" class="btn-auth btn-primary" id="loginBtn">
+                <span class="btn-text">Iniciar Sesión</span>
+                <span class="btn-spinner" style="display: none;">🔄</span>
+            </button>
+        </form>
+
+        <div class="auth-divider">
+            <span>o</span>
+        </div>
+
+        <div class="auth-footer">
+            <p>¿No tienes una cuenta?</p>
+            <a href="/register" class="btn-auth btn-secondary">
+                Crear Cuenta Nueva
+            </a>
+        </div>
+
+        <div class="auth-help">
+            <h4>🛒 ¿Necesitas ayuda?</h4>
+            <ul>
+                <li>Puedes navegar como invitado</li>
+                <li>Crea una cuenta para guardar tu carrito</li>
+                <li>Acceso a ofertas exclusivas para miembros</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script src="/js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    initializeLoginForm();
+});
+
+</script>

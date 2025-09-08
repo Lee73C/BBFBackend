@@ -7,14 +7,11 @@ class ProductManager extends BaseManager {
         super(Product);
     }
 
-    // Método principal mejorado
+    // Método principal
     async getProducts(options = {}) {
         try {
-            console.log('🔍 getProducts iniciado con opciones:', options);
-
             // Limpiar y validar opciones
             const cleanOptions = this._cleanOptions(options);
-            console.log('🧹 Opciones limpiadas:', cleanOptions);
 
             // Usar QueryService para procesar la consulta
             const features = new QueryService(this.model, cleanOptions)
@@ -30,17 +27,9 @@ class ProductManager extends BaseManager {
             result.prevLink = result.hasPrevPage ? this._buildLink(cleanOptions, result.prevPage) : null;
             result.nextLink = result.hasNextPage ? this._buildLink(cleanOptions, result.nextPage) : null;
 
-            console.log('✅ Productos obtenidos:', {
-                count: result.payload.length,
-                totalDocs: result.totalDocs,
-                page: result.page,
-                totalPages: result.totalPages
-            });
-
             return result;
 
         } catch (error) {
-            console.error('❌ Error en getProducts:', error);
             throw new Error(`Error al obtener productos: ${error.message}`);
         }
     }
@@ -128,7 +117,6 @@ class ProductManager extends BaseManager {
     _buildLink(options, page) {
         const params = new URLSearchParams();
         
-        // Solo agregar parámetros que tienen valor válido
         const validParams = {
             page: page && page !== 1 ? page : null,
             limit: options.limit && options.limit !== 10 ? options.limit : null,
@@ -151,7 +139,7 @@ class ProductManager extends BaseManager {
         return queryString ? `/api/products?${queryString}` : '/api/products';
     }
 
-    // Método de búsqueda avanzada simplificado
+    // Método de búsqueda avanzada
     async searchProducts(searchTerm, options = {}) {
         try {
             if (!searchTerm || searchTerm.trim().length < 1) {
@@ -162,11 +150,9 @@ class ProductManager extends BaseManager {
                 };
             }
 
-            // Usar el método principal con búsqueda
             const searchOptions = { ...options, search: searchTerm };
             const result = await this.getProducts(searchOptions);
 
-            // Generar sugerencias si no hay resultados
             let suggestions = [];
             if (result.payload.length === 0) {
                 suggestions = await this._generateSuggestions(searchTerm);
@@ -192,13 +178,11 @@ class ProductManager extends BaseManager {
     // Generar sugerencias de búsqueda
     async _generateSuggestions(searchTerm) {
         try {
-            // Buscar categorías similares
             const categories = await this.getCategories();
             const categorySuggestions = categories.filter(cat => 
                 cat.toLowerCase().includes(searchTerm.toLowerCase())
             );
 
-            // Buscar productos con términos similares 
             const similarProducts = await this.model.find({
                 $or: [
                     { title: new RegExp(searchTerm.split('').join('.*'), 'i') },
@@ -214,122 +198,80 @@ class ProductManager extends BaseManager {
             return suggestions.slice(0, 5); 
 
         } catch (error) {
-            console.error('Error generando sugerencias:', error);
             return [];
         }
     }
 
     // Obtener productos relacionados
     async getRelatedProducts(productId, limit = 4) {
-    try {
-        console.log(`🔍 Buscando productos relacionados para: ${productId}`);
-        
-        const product = await this.getById(productId);
-        console.log(`📦 Producto base: ${product.title} (${product.category})`);
-        
-        let relatedProducts = [];
-        
-        // ESTRATEGIA 1: Misma categoría (excluyendo el producto actual)
-        console.log(`🔍 Estrategia 1: Buscando en categoría "${product.category}"`);
-        relatedProducts = await this.model.find({
-            _id: { $ne: productId },
-            category: product.category,
-            status: true
-        })
-        .limit(limit)
-        .select('title price stock thumbnails category status createdAt')
-        .sort({ createdAt: -1 });
-        
-        console.log(`📊 Encontrados en misma categoría: ${relatedProducts.length}`);
-        
-        // ESTRATEGIA 2: Si no hay suficientes, buscar en otras categorías
-        if (relatedProducts.length < limit) {
-            console.log(`🔍 Estrategia 2: Buscando en otras categorías (faltan ${limit - relatedProducts.length})`);
+        try {
+            const product = await this.getById(productId);
             
-            const additional = await this.model.find({
-                _id: { $ne: productId },
-                category: { $ne: product.category },
-                status: true
-            })
-            .limit(limit - relatedProducts.length)
-            .select('title price stock thumbnails category status createdAt')
-            .sort({ createdAt: -1 });
+            let relatedProducts = [];
             
-            console.log(`📊 Encontrados en otras categorías: ${additional.length}`);
-            relatedProducts = [...relatedProducts, ...additional];
-        }
-        
-        // ESTRATEGIA 3: Si aún no hay suficientes, incluir productos inactivos de la misma categoría
-        if (relatedProducts.length < limit) {
-            console.log(`🔍 Estrategia 3: Incluyendo productos inactivos de la misma categoría`);
-            
-            const inactive = await this.model.find({
+            // Misma categoría (excluyendo el producto actual)
+            relatedProducts = await this.model.find({
                 _id: { $ne: productId },
                 category: product.category,
-                status: false
+                status: true
             })
-            .limit(limit - relatedProducts.length)
+            .limit(limit)
             .select('title price stock thumbnails category status createdAt')
             .sort({ createdAt: -1 });
             
-            console.log(`📊 Encontrados inactivos: ${inactive.length}`);
-            relatedProducts = [...relatedProducts, ...inactive];
-        }
-        
-        // ESTRATEGIA 4: Como último recurso, obtener cualquier producto
-        if (relatedProducts.length < limit) {
-            console.log(`🔍 Estrategia 4: Último recurso - cualquier producto diferente`);
-            
-            // Excluir IDs ya encontrados
-            const existingIds = relatedProducts.map(p => p._id.toString());
-            
-            const anyProduct = await this.model.find({
-                _id: { 
-                    $ne: productId,
-                    $nin: existingIds 
-                }
-            })
-            .limit(limit - relatedProducts.length)
-            .select('title price stock thumbnails category status createdAt')
-            .sort({ createdAt: -1 });
-            
-            console.log(`📊 Encontrados (cualquiera): ${anyProduct.length}`);
-            relatedProducts = [...relatedProducts, ...anyProduct];
-        }
-        
-        // ELIMINACIÓN FINAL DE DUPLICADOS
-        const uniqueProducts = [];
-        const seenIds = new Set();
-        
-        for (const prod of relatedProducts) {
-            const prodId = prod._id.toString();
-            if (!seenIds.has(prodId)) {
-                seenIds.add(prodId);
-                uniqueProducts.push(prod);
+            // Si no hay suficientes, buscar en otras categorías
+            if (relatedProducts.length < limit) {
+                const additional = await this.model.find({
+                    _id: { $ne: productId },
+                    category: { $ne: product.category },
+                    status: true
+                })
+                .limit(limit - relatedProducts.length)
+                .select('title price stock thumbnails category status createdAt')
+                .sort({ createdAt: -1 });
+                
+                relatedProducts = [...relatedProducts, ...additional];
             }
-        }
-        
-        console.log(`✅ Total productos relacionados encontrados: ${relatedProducts.length}`);
-        
-        // Log final para debugging
-        if (relatedProducts.length > 0) {
-            console.log('📋 Lista final de productos relacionados:');
-            relatedProducts.forEach((prod, index) => {
-                console.log(`  ${index + 1}. ${prod.title} (${prod.category}) - ${prod.status ? 'Activo' : 'Inactivo'}`);
-            });
-        } else {
-            console.log('❌ No se encontraron productos relacionados con ninguna estrategia');
-        }
-        
-        return relatedProducts;
+            
+            // Si aún no hay suficientes, incluir productos inactivos de la misma categoría
+            if (relatedProducts.length < limit) {
+                const inactive = await this.model.find({
+                    _id: { $ne: productId },
+                    category: product.category,
+                    status: false
+                })
+                .limit(limit - relatedProducts.length)
+                .select('title price stock thumbnails category status createdAt')
+                .sort({ createdAt: -1 });
+                
+                relatedProducts = [...relatedProducts, ...inactive];
+            }
+            
+            // Como último recurso, obtener cualquier producto
+            if (relatedProducts.length < limit) {
+                const existingIds = relatedProducts.map(p => p._id.toString());
+                
+                const anyProduct = await this.model.find({
+                    _id: { 
+                        $ne: productId,
+                        $nin: existingIds 
+                    }
+                })
+                .limit(limit - relatedProducts.length)
+                .select('title price stock thumbnails category status createdAt')
+                .sort({ createdAt: -1 });
+                
+                relatedProducts = [...relatedProducts, ...anyProduct];
+            }
+            
+            return relatedProducts;
 
-    } catch (error) {
-        console.error('❌ Error obteniendo productos relacionados:', error);
-        return [];
+        } catch (error) {
+            return [];
+        }
     }
-}
 
-    // Mantener métodos específicos de negocio
+    // Métodos de estadísticas y utilidades
     async getProductStats() {
         try {
             const stats = await this.model.aggregate([

@@ -16,6 +16,12 @@
                     <a href="/products">Catálogo</a> 
                     <a href="/realtimeproducts">Productos en Tiempo Real</a>
                     <a href="#" onclick="goToCart()">🛒 Ver Mi Carrito</a>
+                    
+                    <!-- Enlaces de autenticación (se muestran/ocultan con JavaScript) -->
+                    <a href="/login" class="auth-link" data-auth-required="false">🔑 Iniciar Sesión</a>
+                    <a href="/register" class="auth-link" data-auth-required="false">👤 Registro</a>
+                    <a href="/profile" class="auth-link" data-auth-required="true" style="display: none;">👤 Mi Perfil</a>
+                    <a href="#" onclick="BBAuth.logout()" class="auth-link" data-auth-required="true" style="display: none;">🚪 Salir</a>
                 </nav>
             </div>
         </div>
@@ -29,6 +35,8 @@
         <p>&copy; 2024 BBFermentos - Productos fermentados de calidad</p>
     </footer>
 
+    <!-- Scripts globales -->
+    <script src="/js/auth.js"></script>
     <script>
         // Función para ir al carrito desde cualquier página
         function goToCart() {
@@ -40,6 +48,23 @@
                 window.location.href = '/products';
             }
         }
+
+        // Inicializar autenticación al cargar cualquier página
+        document.addEventListener('DOMContentLoaded', () => {
+            // La función initializeAuth() ya se ejecuta en auth.js
+            
+            // Verificar si hay mensajes en la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const message = urlParams.get('message');
+            
+            if (message === 'logged_out') {
+                if (window.BBAuth && window.BBAuth.showAlert) {
+                    window.BBAuth.showAlert('Sesión cerrada correctamente', 'info');
+                }
+                // Limpiar la URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
     </script>
 </body>
 </html>

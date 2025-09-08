@@ -3,7 +3,7 @@ class QueryService {
         this.model = model;
         this.queryString = queryString;
         this.query = this.model.find();
-        this.filterQuery = {}; // Agregar filtro separado para count
+        this.filterQuery = {};
     }
 
     // Filtros comunes
@@ -12,8 +12,7 @@ class QueryService {
         const excludedFields = ['page', 'sort', 'limit', 'fields', 'search'];
         excludedFields.forEach(el => delete queryObj[el]);
 
-        // Procesar filtros específicos
-        this.filterQuery = {}; // Reset filter query
+        this.filterQuery = {};
 
         // Filtro de categoría
         if (queryObj.category && queryObj.category !== 'all') {
@@ -82,7 +81,7 @@ class QueryService {
         return this;
     }
 
-    // Ordenamiento corregido
+    // Ordenamiento
     sort() {
         if (this.queryString.sort) {
             let sortOptions = {};
@@ -122,7 +121,6 @@ class QueryService {
             }
             
             this.query = this.query.sort(sortOptions);
-            console.log('🔀 Ordenamiento aplicado:', this.queryString.sort, sortOptions);
         } else {
             this.query = this.query.sort({ status: -1, createdAt: -1 });
         }
@@ -140,7 +138,7 @@ class QueryService {
         return this;
     }
 
-    // Paginación corregida
+    // Paginación
     paginate() {
         const page = Math.max(1, parseInt(this.queryString.page) || 1);
         const limit = Math.max(1, Math.min(100, parseInt(this.queryString.limit) || 10));
@@ -151,16 +149,12 @@ class QueryService {
         // Almacenar para cálculos posteriores
         this.pagination = { page, limit, skip };
         
-        console.log('📄 Paginación aplicada:', { page, limit, skip });
         return this;
     }
 
     // Ejecutar consulta con metadatos
     async execute() {
         try {
-            console.log('🔍 Ejecutando consulta con filtros:', this.filterQuery);
-            console.log('📊 Parámetros de paginación:', this.pagination);
-            
             // Crear consulta de conteo usando los mismos filtros
             const countQuery = this.model.countDocuments(this.filterQuery || {});
             
@@ -189,17 +183,9 @@ class QueryService {
                 limit
             };
 
-            console.log('✅ Consulta ejecutada exitosamente:', {
-                docs: docs.length,
-                totalDocs,
-                page,
-                totalPages
-            });
-
             return result;
 
         } catch (error) {
-            console.error('❌ Error ejecutando consulta:', error);
             throw new Error(`Error en consulta: ${error.message}`);
         }
     }

@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import ProductManager from '../managers/ProductManager.js';
 import { validateProductQuery } from '../middleware/queryValidation.js';
+import passport from "passport";
+import { authenticate, authorize } from "../middleware/auth.js";
+
 
 const router = Router();
 const productManager = new ProductManager();
@@ -106,7 +109,7 @@ router.get("/:pid", async (req, res) => {
     }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authenticate, authorize('admin'), async (req, res) => {
     try {
         const isAdmin = req.body.isAdmin === 'true' || req.headers['x-admin-mode'] === 'true';
 
@@ -141,7 +144,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-router.put("/:pid", async (req, res) => {
+router.put('/:pid', authenticate, authorize('admin'), async (req, res) => {
     try {
         const { pid } = req.params;
         const updatedProduct = await productManager.updateProductById(pid, req.body);
@@ -168,7 +171,7 @@ router.put("/:pid", async (req, res) => {
     }
 });
 
-router.delete('/:pid', async (req, res) => {
+router.delete('/:pid', authenticate, authorize('admin'), async (req, res) => {
     try {
         const { pid } = req.params;
         await productManager.deleteProductById(pid);

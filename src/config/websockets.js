@@ -4,8 +4,6 @@ export const configureWebSockets = (io) => {
     const productManager = new ProductManager();
     
     io.on('connection', (socket) => {
-        console.log('👤 Usuario conectado:', socket.id);
-        
         // Enviar productos iniciales
         productManager.getProducts({ limit: 100, status: undefined })
             .then(result => {
@@ -51,7 +49,7 @@ export const configureWebSockets = (io) => {
         });
         
         socket.on('disconnect', () => {
-            console.log('👋 Usuario desconectado:', socket.id);
+            // Cliente desconectado
         });
     });
 };
