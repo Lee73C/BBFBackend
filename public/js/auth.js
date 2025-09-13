@@ -1,6 +1,3 @@
-// ===========================================
-// SISTEMA DE AUTENTICACIÓN - BBFermentos
-// ===========================================
 
 // Configuración global
 const AUTH_CONFIG = {
@@ -11,10 +8,6 @@ const AUTH_CONFIG = {
     USER_KEY: 'bbfermentos_user_data',
     REDIRECT_KEY: 'bbfermentos_redirect_after_login'
 };
-
-// ===========================================
-// UTILIDADES GENERALES
-// ===========================================
 
 // Mostrar alertas
 function showAlert(message, type = 'info', container = 'alertContainer') {
@@ -122,10 +115,6 @@ function getPasswordStrength(password) {
     return { strength: 'fair', message: 'Regular - Agrega mayúsculas y números' };
 }
 
-// ===========================================
-// GESTIÓN DE TOKENS
-// ===========================================
-
 // Guardar token de autenticación
 function saveAuthToken(token, userData = null) {
     localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
@@ -157,10 +146,6 @@ function clearAuthData() {
 function isAuthenticated() {
     return !!getAuthToken();
 }
-
-// ===========================================
-// FUNCIONES DE LOGIN
-// ===========================================
 
 function initializeLoginForm() {
     const form = document.getElementById('loginForm');
@@ -271,9 +256,6 @@ async function handleLogin(event) {
     }
 }
 
-// ===========================================
-// FUNCIONES DE REGISTRO
-// ===========================================
 
 function initializeRegisterForm() {
     const form = document.getElementById('registerForm');
@@ -525,9 +507,6 @@ async function handleRegister(event) {
     }
 }
 
-// ===========================================
-// VERIFICACIÓN DE AUTENTICACIÓN
-// ===========================================
 
 async function verifyAuthentication() {
     const token = getAuthToken();
@@ -560,9 +539,6 @@ async function verifyAuthentication() {
     }
 }
 
-// ===========================================
-// LOGOUT
-// ===========================================
 
 function logout() {
     clearAuthData();
@@ -572,9 +548,6 @@ function logout() {
     }, 1000);
 }
 
-// ===========================================
-// PROTECCIÓN DE RUTAS
-// ===========================================
 
 function requireAuth(redirectUrl = '/login') {
     if (!isAuthenticated()) {
@@ -594,9 +567,6 @@ function requireGuest(redirectUrl = '/products') {
     return true;
 }
 
-// ===========================================
-// INTEGRACIÓN CON CARRITO EXISTENTE
-// ===========================================
 
 function integrateWithExistingCart() {
     // Verificar si hay un carrito en localStorage
@@ -614,9 +584,6 @@ function integrateWithExistingCart() {
     }
 }
 
-// ===========================================
-// INICIALIZACIÓN GLOBAL
-// ===========================================
 
 // Función que se ejecuta en todas las páginas
 function initializeAuth() {
@@ -669,9 +636,6 @@ function updateAuthUI() {
     });
 }
 
-// ===========================================
-// MANEJO DE ERRORES GLOBALES
-// ===========================================
 
 window.addEventListener('unhandledrejection', event => {
     console.error('Promise rechazada sin manejar:', event.reason);
@@ -684,9 +648,6 @@ window.addEventListener('unhandledrejection', event => {
     }
 });
 
-// ===========================================
-// EXPORT DE FUNCIONES GLOBALES
-// ===========================================
 
 // Hacer funciones disponibles globalmente
 window.BBAuth = {

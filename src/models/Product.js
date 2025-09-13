@@ -14,9 +14,8 @@ const productSchema = new mongoose.Schema({
   },
   code: {
     type: String,
-    unique: true, // Esto ya crea un índice automáticamente
+    unique: true, 
     trim: true
-    // No se permite proporcionar código manualmente, siempre se genera automáticamente
   },
   price: {
     type: Number,
@@ -46,8 +45,7 @@ const productSchema = new mongoose.Schema({
   versionKey: false
 });
 
-// ELIMINÉ LOS ÍNDICES DUPLICADOS - unique: true ya crea el índice automáticamente
-// Solo dejamos los índices que no están duplicados
+
 productSchema.index({ category: 1 });
 productSchema.index({ status: 1 });
 
@@ -70,10 +68,9 @@ productSchema.statics.generateUniqueCode = async function() {
   throw new Error('No se pudo generar un código único');
 };
 
-// Pre-save hook para generar código automáticamente SIEMPRE
+
 productSchema.pre('save', async function(next) {
   if (this.isNew) {
-    // Siempre generar un nuevo código, ignorar cualquier código proporcionado
     try {
       this.code = await this.constructor.generateUniqueCode();
     } catch (error) {
