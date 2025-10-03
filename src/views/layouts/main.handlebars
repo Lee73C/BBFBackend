@@ -13,15 +13,23 @@
             <div>
                 <h1>BBFermentos</h1>
                 <nav>
-                    <a href="/products">Catálogo</a> 
-                    <a href="/realtimeproducts">Productos en Tiempo Real</a>
-                    <a href="#" onclick="goToCart()">🛒 Ver Mi Carrito</a>
+                    <a href="/products">Catálogo</a>
                     
-                    <!-- Enlaces de autenticación (se muestran/ocultan con JavaScript) -->
+                    <!-- Links solo visible para admin -->
+                    <a href="/realtimeproducts" class="auth-link" data-auth-required="true" data-role-required="admin" style="display: none;">
+                        🔧 Productos
+                    </a>
+                    <a href="/adminOrders" class="auth-link" data-auth-required="true" data-role-required="admin" style="display: none;">
+                        📦 Órdenes
+                    </a>
+                    
+                    <a href="#" onclick="goToCart(); return false;">🛒 Ver Mi Carrito</a>
+                    
+                    <!-- Enlaces de autenticación -->
                     <a href="/login" class="auth-link" data-auth-required="false">🔑 Iniciar Sesión</a>
                     <a href="/register" class="auth-link" data-auth-required="false">👤 Registro</a>
                     <a href="/profile" class="auth-link" data-auth-required="true" style="display: none;">👤 Mi Perfil</a>
-                    <a href="#" onclick="BBAuth.logout()" class="auth-link" data-auth-required="true" style="display: none;">🚪 Salir</a>
+                    <a href="#" onclick="handleLogout(); return false;" class="auth-link" data-auth-required="true" style="display: none;">🚪 Salir</a>
                 </nav>
             </div>
         </div>
@@ -44,24 +52,88 @@
             if (cartId) {
                 window.location.href = `/carts/${cartId}`;
             } else {
-                alert('No tienes un carrito activo. Ve al inicio para crear uno.');
+                
                 window.location.href = '/products';
             }
         }
 
+        // 🔧 FUNCIÓN DE LOGOUT CORREGIDA
+        function handleLogout() {
+            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                // Limpiar todo el almacenamiento
+                localStorage.removeItem('bbfermentos_auth_token');
+                localStorage.removeItem('bbfermentos_user_data');
+                localStorage.removeItem('bbfermentos_cart_id');
+                localStorage.removeItem('bbfermentos_cart_timestamp');
+                localStorage.removeItem('bbfermentos_redirect_after_login');
+                
+                // Limpiar cookie
+                document.cookie = 'bbfermentos_auth_token=; path=/; max-age=0';
+                
+                // Mostrar mensaje
+                
+                
+                // Redirigir
+                window.location.href = '/login';
+            }
+        }
+
+        function updateAuthUI() {
+            const userData = getUserData();
+            const isAuth = isAuthenticated();
+            
+            // Actualizar navegación
+            const authLinks = document.querySelectorAll('.auth-link');
+            authLinks.forEach(link => {
+                const authRequired = link.dataset.authRequired === 'true';
+                const roleRequired = link.dataset.roleRequired;
+                
+                if (authRequired) {
+                    if (isAuth) {
+                        if (roleRequired) {
+                            if (userData && userData.role === roleRequired) {
+                                link.style.display = 'inline';
+                            } else {
+                                link.style.display = 'none';
+                            }
+                        } else {
+                            link.style.display = 'inline';
+                        }
+                        
+                        if (userData && link.textContent.includes('Usuario')) {
+                            link.textContent = `👤 ${userData.first_name}`;
+                        }
+                    } else {
+                        link.style.display = 'none';
+                    }
+                } else {
+                    if (isAuth) {
+                        link.style.display = 'none';
+                    } else {
+                        link.style.display = 'inline';
+                    }
+                }
+            });
+        }
+
+        function getUserData() {
+            const userData = localStorage.getItem('bbfermentos_user_data');
+            return userData ? JSON.parse(userData) : null;
+        }
+
+        function isAuthenticated() {
+            return !!localStorage.getItem('bbfermentos_auth_token');
+        }
+
         // Inicializar autenticación al cargar cualquier página
         document.addEventListener('DOMContentLoaded', () => {
-            // La función initializeAuth() ya se ejecuta en auth.js
+            updateAuthUI();
             
-            // Verificar si hay mensajes en la URL
             const urlParams = new URLSearchParams(window.location.search);
             const message = urlParams.get('message');
             
             if (message === 'logged_out') {
-                if (window.BBAuth && window.BBAuth.showAlert) {
-                    window.BBAuth.showAlert('Sesión cerrada correctamente', 'info');
-                }
-                // Limpiar la URL
+                
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         });

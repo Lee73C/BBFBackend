@@ -1,7 +1,6 @@
 export const validateProductQuery = (req, res, next) => {
     try {
         const query = req.query;
-        console.log('🔍 Query original recibido:', query);
 
         // Validar y sanitizar page
         if (query.page) {
@@ -120,12 +119,10 @@ export const validateProductQuery = (req, res, next) => {
             }
         }
 
-        console.log('✅ Query validado y sanitizado:', query);
         req.query = query;
         next();
 
     } catch (error) {
-        console.error('❌ Error en validación de query:', error);
         // En caso de error, usar valores por defecto
         req.query = {
             page: 1,
@@ -172,7 +169,6 @@ export const validateCartParams = (req, res, next) => {
         next();
 
     } catch (error) {
-        console.error('Error en validación de parámetros de carrito:', error);
         res.status(500).json({
             status: 'error',
             message: 'Error interno del servidor'

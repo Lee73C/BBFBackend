@@ -295,7 +295,6 @@
         save: function (cartId) {
             localStorage.setItem('bbfermentos_cart_id', cartId);
             localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
-            console.log('💾 Carrito guardado en sesión:', cartId);
         },
 
         get: function () {
@@ -307,10 +306,8 @@
                 const maxAge = 24 * 60 * 60 * 1000; // 24 horas
 
                 if (age < maxAge) {
-                    console.log('♻️ Carrito recuperado de sesión:', cartId);
                     return cartId;
                 } else {
-                    console.log('⏰ Carrito expirado, creando uno nuevo');
                     this.clear();
                 }
             }
@@ -320,23 +317,19 @@
         clear: function () {
             localStorage.removeItem('bbfermentos_cart_id');
             localStorage.removeItem('bbfermentos_cart_timestamp');
-            console.log('🗑️ Sesión de carrito limpiada');
         },
 
         verify: async function (cartId) {
             try {
                 const response = await fetch(`/api/carts/${cartId}`);
-                const exists = response.ok;
-                console.log('🔍 Verificación de carrito:', cartId, exists ? '✅' : '❌');
-                return exists;
+                return response.ok;
             } catch (error) {
-                console.log('❌ Error verificando carrito:', error);
                 return false;
             }
         }
     };
 
-    // Auto-aplicar filtros en tiempo real
+    // Inicializar carrito
     document.addEventListener('DOMContentLoaded', async () => {
         await initializeCart();
         initializeFilters();
@@ -348,17 +341,14 @@
         const searchInput = document.getElementById('search');
         let searchTimeout;
 
-        // Auto-submit en cambios de filtros (excepto búsqueda)
         const filterInputs = form.querySelectorAll('select, input[type="number"]');
         filterInputs.forEach(input => {
             input.addEventListener('change', () => {
-                // Resetear página a 1 cuando cambian los filtros
                 document.querySelector('input[name="page"]').value = 1;
                 form.submit();
             });
         });
 
-        // Búsqueda con debounce
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
@@ -366,10 +356,9 @@
                     document.querySelector('input[name="page"]').value = 1;
                     form.submit();
                 }
-            }, 500); // 500ms de debounce
+            }, 500);
         });
 
-        // Prevenir submit en Enter durante la escritura
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -382,7 +371,6 @@
 
     async function initializeCart() {
         try {
-            console.log('🚀 Inicializando carrito...');
 
             const savedCartId = CartSession.get();
 
@@ -391,16 +379,24 @@
 
                 if (cartExists) {
                     currentCartId = savedCartId;
-                    console.log('✅ Usando carrito existente:', currentCartId);
                     await updateCartDisplay();
                     return;
                 } else {
-                    console.log('⚠️ Carrito no existe en servidor, creando uno nuevo');
                     CartSession.clear();
                 }
             }
 
-            console.log('🆕 Creando nuevo carrito...');
+            await createNewCartInternal();
+            
+        } catch (error) {
+            
+            showAlert('Error al inicializar carrito', 'warning');
+        }
+    }
+
+    async function createNewCartInternal() {
+        try {
+            
             const response = await fetch('/api/carts', {
                 method: 'POST',
                 headers: {
@@ -408,34 +404,40 @@
                 }
             });
 
+            
             if (response.ok) {
                 const data = await response.json();
                 currentCartId = data.cart._id;
                 CartSession.save(currentCartId);
-                console.log('✅ Nuevo carrito creado:', currentCartId);
-                updateCartDisplay();
+                await updateCartDisplay();
+                return true;
             } else {
-                showAlert('Error al inicializar carrito', 'danger');
+                const errorData = await response.json();
+                
+                throw new Error(errorData.message || 'Error al crear carrito');
             }
         } catch (error) {
-            console.error('❌ Error inicializando carrito:', error);
-            showAlert('Error de conexión al inicializar carrito', 'danger');
+            
+            showAlert('No se pudo crear el carrito: ' + error.message, 'danger');
+            return false;
         }
     }
 
     async function createNewCart() {
-        if (confirm('¿Estás seguro de que quieres crear un nuevo carrito? Se perderá el carrito actual.')) {
+        if (confirm('¿Crear nuevo carrito? Se perderá el actual.')) {
             CartSession.clear();
-            await initializeCart();
+            await createNewCartInternal();
             showAlert('Nuevo carrito creado', 'success');
         }
     }
 
     async function addToCart(productId, productTitle, productPrice, productStock) {
+        
         if (!currentCartId) {
-            showAlert('Error: Carrito no inicializado', 'danger');
-            await initializeCart();
-            return;
+            const created = await createNewCartInternal();
+            if (!created) {
+                return;
+            }
         }
 
         const quantityInput = document.getElementById(`quantity-${productId}`);
@@ -452,6 +454,7 @@
         }
 
         try {
+            
             for (let i = 0; i < quantity; i++) {
                 const response = await fetch(`/api/carts/${currentCartId}/product/${productId}`, {
                     method: 'POST',
@@ -462,7 +465,7 @@
 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.message);
+                    throw new Error(error.message || 'Error al agregar producto');
                 }
             }
 
@@ -472,10 +475,11 @@
             CartSession.save(currentCartId);
 
         } catch (error) {
-            console.error('Error agregando al carrito:', error);
-            showAlert('Error al agregar producto: ' + error.message, 'danger');
+            
+            showAlert('Error: ' + error.message, 'danger');
         }
     }
+
     function goToPage(page) {
         const currentUrl = new URL(window.location);
         currentUrl.searchParams.set('page', page);
@@ -492,30 +496,18 @@
                 const cart = data.cart;
                 cartItems = cart.products || [];
 
-                // Actualizar contador
                 const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
                 document.getElementById('cartCount').textContent = totalItems;
 
-                // Actualizar timestamp si hay actividad
                 if (totalItems > 0) {
                     CartSession.save(currentCartId);
                 }
-
-            } else {
-                console.error('Error obteniendo carrito');
-                // Si el carrito no existe, crear uno nuevo
-                if (response.status === 404) {
-                    console.log('🔄 Carrito no encontrado, creando uno nuevo');
-                    CartSession.clear();
-                    await initializeCart();
-                }
             }
         } catch (error) {
-            console.error('Error actualizando carrito:', error);
+            
         }
     }
 
-    // Ver carrito - redirigir a vista específica
     async function viewCart() {
         if (!currentCartId) {
             showAlert('Carrito no inicializado', 'danger');
@@ -523,23 +515,20 @@
             return;
         }
 
-        // Verificar que el carrito existe antes de redirigir
         const cartExists = await CartSession.verify(currentCartId);
         if (!cartExists) {
-            showAlert('El carrito no existe, creando uno nuevo...', 'warning');
+            showAlert('Carrito no existe, creando nuevo...', 'warning');
             await initializeCart();
             return;
         }
 
-        // Redirigir a la vista específica del carrito
         window.location.href = `/carts/${currentCartId}`;
     }
 
-    // Limpiar carrito
     async function clearCart() {
         if (!currentCartId) return;
 
-        if (confirm('¿Estás seguro de que quieres limpiar el carrito?')) {
+        if (confirm('¿Limpiar el carrito?')) {
             try {
                 const response = await fetch(`/api/carts/${currentCartId}`, {
                     method: 'DELETE'
@@ -552,28 +541,12 @@
                     showAlert('Error al limpiar carrito', 'danger');
                 }
             } catch (error) {
-                console.error('Error limpiando carrito:', error);
+                
                 showAlert('Error de conexión', 'danger');
             }
         }
     }
 
-    // Finalizar compra
-    function checkout() {
-        if (cartItems.length === 0) {
-            showAlert('El carrito está vacío', 'warning');
-            return;
-        }
-
-        showAlert('Función de checkout en desarrollo', 'info');
-    }
-
-    // Cerrar modal
-    function closeCartModal() {
-        document.getElementById('cartModal').style.display = 'none';
-    }
-
-    // Mostrar alertas
     function showAlert(message, type) {
         const alertContainer = document.getElementById('alertContainer');
         const alertClass = `alert-${type}`;
@@ -587,7 +560,6 @@
 
         alertContainer.innerHTML = alertHtml;
 
-        // Auto-remover después de 5 segundos
         setTimeout(() => {
             const alert = alertContainer.querySelector('.alert');
             if (alert) alert.remove();
@@ -599,26 +571,4 @@
     document.getElementById('clearCartBtn').addEventListener('click', clearCart);
     document.getElementById('newCartBtn').addEventListener('click', createNewCart);
 
-    // Cerrar modal al hace click fuera
-    document.getElementById('cartModal').addEventListener('click', (e) => {
-        if (e.target.id === 'cartModal') {
-            closeCartModal();
-        }
-    });
-
-    // Debug: Información del carrito
-    console.log('🛒 Sistema de carrito persistente inicializado');
-    console.log('📱 Funciones disponibles: CartSession.get(), CartSession.clear()');
-
-    // Función global para debug
-    window.cartDebug = function () {
-        console.log('=== CART SESSION DEBUG ===');
-        console.log('Current Cart ID:', currentCartId);
-        console.log('Saved Cart ID:', CartSession.get());
-        console.log('Cart Items:', cartItems.length);
-        console.log('LocalStorage:', {
-            cartId: localStorage.getItem('bbfermentos_cart_id'),
-            timestamp: localStorage.getItem('bbfermentos_cart_timestamp')
-        });
-    };
 </script>

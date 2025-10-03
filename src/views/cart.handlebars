@@ -120,64 +120,114 @@
 {{/if}}
 
 <script>
-const cartId = '{{cartId}}';
+// Asegurarse de que cartId sea un string válido
+let cartId = '{{cartId}}'.trim();
+
+// Verificar que el cartId sea válido
+if (!cartId || cartId === '[object Object]' || cartId === 'undefined' || cartId === 'null') {
+    
+    
+    // Intentar obtener del localStorage
+    const storedCartId = localStorage.getItem('bbfermentos_cart_id');
+    
+    if (storedCartId && storedCartId !== '[object Object]' && storedCartId !== 'undefined') {
+        window.location.href = `/carts/${storedCartId}`;
+    } else {
+        
+        window.location.href = '/products';
+    }
+    
+    // Detener ejecución del resto del script
+    throw new Error('CartId inválido');
+}
+
+/**
+ * Objeto para gestionar el carrito en localStorage
+ */
+const CartSession = {
+    save: function(cartId) {
+        if (!cartId || cartId === 'undefined' || cartId === 'null') {
+            console.error('❌ Intentando guardar cartId inválido:', cartId);
+            return;
+        }
+        console.log('💾 Guardando carrito:', cartId);
+        localStorage.setItem('bbfermentos_cart_id', cartId);
+        localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
+    },
+    
+    get: function() {
+        const cartId = localStorage.getItem('bbfermentos_cart_id');
+        const timestamp = localStorage.getItem('bbfermentos_cart_timestamp');
+        
+        if (cartId && timestamp) {
+            const age = Date.now() - parseInt(timestamp);
+            const maxAge = 24 * 60 * 60 * 1000;
+            
+            if (age < maxAge) {
+                return cartId;
+            } else {
+                console.log('⏰ Carrito expirado, limpiando...');
+                this.clear();
+            }
+        }
+        return null;
+    },
+    
+    clear: function() {
+        console.log('🧹 Limpiando carrito del localStorage');
+        localStorage.removeItem('bbfermentos_cart_id');
+        localStorage.removeItem('bbfermentos_cart_timestamp');
+    },
+    
+    verify: async function(cartId) {
+        if (!cartId) return false;
+        try {
+            const response = await fetch(`/api/carts/${cartId}`);
+            return response.ok;
+        } catch (error) {
+            console.error('Error verificando carrito:', error);
+            return false;
+        }
+    }
+};
+
 
 // Funciones de cálculo
 function calculateTotals() {
     let totalItems = 0;
     let totalAmount = 0;
     
-    // Obtener todos los productos del carrito
     const productItems = document.querySelectorAll('.cart-product-item');
     
-    console.log('🧮 Calculando totales...');
-    console.log('📦 Productos encontrados:', productItems.length);
-    
-    productItems.forEach((item, index) => {
+    productItems.forEach((item) => {
         const quantityInput = item.querySelector('.quantity-input');
         const price = parseFloat(item.dataset.price);
         
         if (quantityInput && price) {
-
             const quantity = parseInt(quantityInput.value) || 0;
             const subtotal = price * quantity;
-            
-            console.log(`Producto ${index + 1}:`, {
-                id: item.dataset.productId,
-                quantity,
-                price,
-                subtotal
-            });
             
             totalItems += quantity;
             totalAmount += subtotal;
             
-
             const subtotalElement = item.querySelector(`#subtotal-${item.dataset.productId}`);
             if (subtotalElement) {
                 subtotalElement.textContent = Math.round(subtotal);
-                console.log(`💰 Subtotal actualizado para ${item.dataset.productId}: ${subtotal}`);
             }
             
-
             item.dataset.quantity = quantity;
         }
     });
     
-    console.log('📊 Totales calculados:', { totalItems, totalAmount });
-    
-
     const totalItemsElement = document.getElementById('totalItems');
     const calculatedTotalElement = document.getElementById('calculatedTotal');
     
     if (totalItemsElement) {
         totalItemsElement.textContent = totalItems;
-        console.log('🔢 Total items actualizado en UI:', totalItems);
     }
     
     if (calculatedTotalElement) {
         calculatedTotalElement.textContent = Math.round(totalAmount);
-        console.log('💵 Total amount actualizado en UI:', totalAmount);
     }
     
     return { totalItems, totalAmount };
@@ -185,22 +235,17 @@ function calculateTotals() {
 
 async function syncWithServer() {
     try {
-        console.log('🔄 Sincronizando con servidor...');
         const response = await fetch(`/api/carts/${cartId}`);
         
         if (response.ok) {
             const data = await response.json();
             const serverCart = data.cart;
             
-            console.log('📡 Datos del servidor:', serverCart);
-            
-
             serverCart.products.forEach(serverItem => {
                 const quantityInput = document.getElementById(`quantity-${serverItem.product._id}`);
                 const clientQuantity = parseInt(quantityInput?.value || 0);
                 
                 if (clientQuantity !== serverItem.quantity) {
-                    console.log(`⚠️ Diferencia detectada en ${serverItem.product._id}: cliente=${clientQuantity}, servidor=${serverItem.quantity}`);
                     if (quantityInput) {
                         quantityInput.value = serverItem.quantity;
                         quantityInput.defaultValue = serverItem.quantity;
@@ -208,11 +253,10 @@ async function syncWithServer() {
                 }
             });
             
-
             calculateTotals();
         }
     } catch (error) {
-        console.error('❌ Error sincronizando con servidor:', error);
+        
     }
 }
 
@@ -223,18 +267,13 @@ function handleQuantityInputChange(productId) {
     const newQuantity = parseInt(quantityInput.value);
     const oldQuantity = parseInt(quantityInput.defaultValue || 1);
     
-    // Solo actualizar si realmente cambió
     if (newQuantity !== oldQuantity) {
-        console.log(`🔄 Cantidad cambió de ${oldQuantity} a ${newQuantity} para ${productId}`);
         updateQuantity(productId, newQuantity);
     }
 }
 
 // Ejecutar cálculo al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Página cargada, calculando totales...');
-    
-    // Pequeño delay para asegurar que todo esté renderizado
     setTimeout(() => {
         calculateTotals();
     }, 100);
@@ -248,45 +287,89 @@ async function updateQuantity(productId, newQuantity) {
         if (confirm('¿Quieres eliminar este producto del carrito?')) {
             await removeFromCart(productId);
         } else {
-            // Restaurar valor anterior
             const quantityInput = document.getElementById(`quantity-${productId}`);
             if (quantityInput) {
                 quantityInput.value = quantityInput.defaultValue || 1;
             }
-            calculateTotals(); // Recalcular con valor restaurado
+            calculateTotals();
         }
         return;
     }
     
     try {
-        console.log(`🔄 Actualizando cantidad de ${productId} a ${newQuantity}`);
+        const token = localStorage.getItem('bbfermentos_auth_token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         
         const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify({ quantity: newQuantity })
         });
         
-        if (response.ok) {
-            console.log('✅ Cantidad actualizada en servidor');
+        // 🔧 MANEJAR ERROR 403 Y 400
+        if (response.status === 403 || response.status === 400) {
+            const error = await response.json();
+            console.log('⚠️ Error de autorización:', error);
             
-            // Actualizar el dataset del elemento inmediatamente
+            // Si el servidor indica un carrito correcto, redirigir
+            if (error.correctCartId) {
+                console.log('🔄 Redirigiendo al carrito correcto...');
+                CartSession.save(error.correctCartId);
+                window.location.href = `/carts/${error.correctCartId}`;
+                return;
+            }
+            
+            // Si es error de autorización sin carrito correcto, recargar usuario
+            showAlert('⚠️ Carrito desincronizado. Recargando...', 'warning');
+            
+            // Intentar obtener info del usuario actual
+            if (token) {
+                try {
+                    const userResponse = await fetch('/api/sessions/current', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (userResponse.ok) {
+                        const userData = await userResponse.json();
+                        const userCartId = userData.payload.cart;
+                        
+                        if (userCartId) {
+                            console.log('✅ Carrito del usuario encontrado:', userCartId);
+                            CartSession.save(userCartId);
+                            window.location.href = `/carts/${userCartId}`;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error obteniendo usuario:', e);
+                }
+            }
+            
+            // Como último recurso, ir a productos
+            setTimeout(() => {
+                window.location.href = '/products';
+            }, 2000);
+            return;
+        }
+        
+        if (response.ok) {
             const productItem = document.querySelector(`[data-product-id="${productId}"]`);
             if (productItem) {
                 productItem.dataset.quantity = newQuantity;
-                console.log(`📦 Dataset actualizado: quantity=${newQuantity}`);
             }
             
-            // Actualizar el input visualmente
             const quantityInput = document.getElementById(`quantity-${productId}`);
             if (quantityInput) {
                 quantityInput.value = newQuantity;
-                quantityInput.defaultValue = newQuantity; // Para restaurar en caso de error
+                quantityInput.defaultValue = newQuantity;
             }
             
-            // Recalcular totales inmediatamente
             calculateTotals();
             showAlert('Cantidad actualizada', 'success');
             
@@ -295,10 +378,9 @@ async function updateQuantity(productId, newQuantity) {
             throw new Error(error.message);
         }
     } catch (error) {
-        console.error('❌ Error actualizando cantidad:', error);
+        console.error('Error actualizando cantidad:', error);
         showAlert('Error: ' + error.message, 'danger');
         
-        // Restaurar valor anterior en caso de error
         const quantityInput = document.getElementById(`quantity-${productId}`);
         if (quantityInput) {
             quantityInput.value = quantityInput.defaultValue || 1;
@@ -307,6 +389,7 @@ async function updateQuantity(productId, newQuantity) {
     }
 }
 
+
 // Eliminar producto del carrito
 async function removeFromCart(productId) {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) {
@@ -314,13 +397,36 @@ async function removeFromCart(productId) {
     }
     
     try {
+        const token = localStorage.getItem('bbfermentos_auth_token');
+        const headers = {};
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         const response = await fetch(`/api/carts/${cartId}/product/${productId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: headers
         });
+        
+        // 🔧 MANEJAR ERROR 403 Y 400
+        if (response.status === 403 || response.status === 400) {
+            const error = await response.json();
+            
+            if (error.correctCartId) {
+                console.log('🔄 Redirigiendo al carrito correcto...');
+                CartSession.save(error.correctCartId);
+                window.location.href = `/carts/${error.correctCartId}`;
+                return;
+            }
+            
+            showAlert('⚠️ Error de autorización. Recargando...', 'warning');
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+        }
         
         if (response.ok) {
             showAlert('Producto eliminado del carrito', 'success');
-            // Recargar página después de un momento
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -341,8 +447,16 @@ async function clearCart() {
     }
     
     try {
+        const token = localStorage.getItem('bbfermentos_auth_token');
+        const headers = {};
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         const response = await fetch(`/api/carts/${cartId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: headers
         });
         
         if (response.ok) {
@@ -355,7 +469,7 @@ async function clearCart() {
             showAlert('Error: ' + error.message, 'danger');
         }
     } catch (error) {
-        console.error('Error vaciando carrito:', error);
+        
         showAlert('Error de conexión', 'danger');
     }
 }
@@ -368,7 +482,6 @@ async function updateCartDisplay() {
             const data = await response.json();
             const cart = data.cart;
             
-            // Actualizar cantidades en los inputs
             cart.products.forEach(item => {
                 const quantityInput = document.getElementById(`quantity-${item.product._id}`);
                 if (quantityInput) {
@@ -376,29 +489,347 @@ async function updateCartDisplay() {
                 }
             });
             
-            // Recalcular totales después de actualizar
             calculateTotals();
         }
     } catch (error) {
-        console.error('Error actualizando carrito:', error);
+        
     }
 }
 
-// Proceder al checkout
+// ==========================================
+// CHECKOUT - PROCEDER AL PAGO
+// ==========================================
+
 function proceedToCheckout() {
     const totals = calculateTotals();
+    
     if (totals.totalItems === 0) {
         showAlert('El carrito está vacío', 'warning');
         return;
     }
-    showAlert('Función de checkout en desarrollo', 'info');
-    // Implementar checkout
+    
+    // Verificar autenticación
+    const token = localStorage.getItem('bbfermentos_auth_token');
+    if (!token) {
+        showAlert('Debes iniciar sesión para realizar una compra', 'warning');
+        localStorage.setItem('bbfermentos_redirect_after_login', window.location.href);
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 1500);
+        return;
+    }
+    
+    showCheckoutModal();
+}
+
+// Mostrar modal de checkout con formulario de dirección
+function showCheckoutModal() {
+    const modalHTML = `
+        <div id="checkoutModal" style="display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #dee2e6; padding-bottom: 15px;">
+                    <h2 style="margin: 0; color: #000;">🛒 Finalizar Compra</h2>
+                    <button onclick="closeCheckoutModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #666;">&times;</button>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0;">📦 Resumen del pedido</h4>
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>Items:</span>
+                        <span id="checkoutItems">0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0; font-weight: bold; font-size: 1.1em; color: #28a745;">
+                        <span>Total:</span>
+                        <span>$<span id="checkoutTotal">0</span></span>
+                    </div>
+                </div>
+
+                <form id="checkoutForm" style="margin-bottom: 20px;">
+                    <h4 style="margin: 20px 0 15px 0;">📍 Dirección de Envío</h4>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Calle y Número *</label>
+                        <input type="text" id="street" name="street" required 
+                               style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                               placeholder="Av. Siempre Viva 123">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Ciudad *</label>
+                            <input type="text" id="city" name="city" required 
+                                   style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                   placeholder="Santiago">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Región *</label>
+                            <input type="text" id="state" name="state" required 
+                                   style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                   placeholder="Metropolitana">
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Código Postal *</label>
+                            <input type="text" id="zipCode" name="zipCode" required 
+                                   style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                   placeholder="8320000">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Teléfono *</label>
+                            <input type="tel" id="phone" name="phone" required 
+                                   style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                   placeholder="+56 9 1234 5678">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">País</label>
+                        <input type="text" id="country" name="country" value="Chile" 
+                               style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; background: #e9ecef; box-sizing: border-box;"
+                               readonly>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Información Adicional</label>
+                        <textarea id="additionalInfo" name="additionalInfo" rows="3"
+                                  style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                  placeholder="Depto, torre, referencias para la entrega..."></textarea>
+                    </div>
+
+                    <h4 style="margin: 20px 0 15px 0;">💳 Método de Pago</h4>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <select id="paymentMethod" name="paymentMethod" required
+                                style="width: 100%; padding: 12px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 1em; box-sizing: border-box;">
+                            <option value="">Selecciona un método de pago</option>
+                            <option value="credit_card">💳 Tarjeta de Crédito</option>
+                            <option value="debit_card">💳 Tarjeta de Débito</option>
+                            <option value="bank_transfer">🏦 Transferencia Bancaria</option>
+                            <option value="cash_on_delivery">💵 Pago contra entrega</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Notas del Pedido</label>
+                        <textarea id="orderNotes" name="notes" rows="2"
+                                  style="width: 100%; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; box-sizing: border-box;"
+                                  placeholder="Comentarios adicionales sobre tu pedido..."></textarea>
+                    </div>
+
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
+                        <small style="color: #856404;">
+                            <strong>ℹ️ Información:</strong> El envío es GRATIS en compras sobre $50,000. 
+                            Tu pedido será procesado una vez confirmado el pago.
+                        </small>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                        <button type="button" onclick="closeCheckoutModal()" 
+                                style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="confirmOrderBtn"
+                                style="padding: 12px 30px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: 600;">
+                            <span id="confirmBtnText">✅ Confirmar Pedido</span>
+                            <span id="confirmBtnSpinner" style="display: none;">🔄 Procesando...</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div id="checkoutAlerts"></div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    const totals = calculateTotals();
+    document.getElementById('checkoutItems').textContent = totals.totalItems + ' productos';
+    document.getElementById('checkoutTotal').textContent = Math.round(totals.totalAmount);
+    
+    document.getElementById('checkoutForm').addEventListener('submit', handleCheckoutSubmit);
+}
+
+function closeCheckoutModal() {
+    const modal = document.getElementById('checkoutModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function handleCheckoutSubmit(e) {
+    e.preventDefault();
+    
+    const confirmBtn = document.getElementById('confirmOrderBtn');
+    const btnText = document.getElementById('confirmBtnText');
+    const btnSpinner = document.getElementById('confirmBtnSpinner');
+    
+    confirmBtn.disabled = true;
+    btnText.style.display = 'none';
+    btnSpinner.style.display = 'inline';
+    
+    try {
+        const formData = new FormData(e.target);
+        
+        const shippingAddress = {
+            street: formData.get('street'),
+            city: formData.get('city'),
+            state: formData.get('state'),
+            zipCode: formData.get('zipCode'),
+            country: formData.get('country') || 'Chile',
+            phone: formData.get('phone'),
+            additionalInfo: formData.get('additionalInfo') || ''
+        };
+        
+        const paymentMethod = formData.get('paymentMethod');
+        const notes = formData.get('notes') || '';
+        
+        if (!paymentMethod) {
+            showCheckoutAlert('Debes seleccionar un método de pago', 'warning');
+            confirmBtn.disabled = false;
+            btnText.style.display = 'inline';
+            btnSpinner.style.display = 'none';
+            return;
+        }
+        
+        const token = localStorage.getItem('bbfermentos_auth_token');
+        
+        if (!token) {
+            showCheckoutAlert('Sesión expirada. Redirigiendo al login...', 'error');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+            return;
+        }
+        
+        // VERIFICAR QUE EL CARRITO TENGA PRODUCTOS ANTES DE ENVIAR
+
+        
+        try {
+            const cartCheckResponse = await fetch(`/api/carts/${cartId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (cartCheckResponse.ok) {
+                const cartCheckData = await cartCheckResponse.json();
+                const productsInCart = cartCheckData.cart.products || [];
+                
+                
+                if (productsInCart.length === 0) {
+                    showCheckoutAlert('❌ El carrito está vacío. Agrega productos antes de continuar.', 'error');
+                    confirmBtn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnSpinner.style.display = 'none';
+                    return;
+                }
+                
+                // Verificar que el carrito coincida con el usuario
+                const userData = JSON.parse(localStorage.getItem('bbfermentos_user_data') || '{}');
+                if (userData.cart && userData.cart !== cartId) {
+                    
+                    showCheckoutAlert('⚠️ Hay un problema con tu carrito. Recargando página...', 'warning');
+                    setTimeout(() => {
+                        localStorage.setItem('bbfermentos_cart_id', userData.cart);
+                        window.location.href = `/carts/${userData.cart}`;
+                    }, 2000);
+                    return;
+                }
+            }
+        } catch (checkError) {
+            
+            showCheckoutAlert('Error verificando el carrito. Intenta de nuevo.', 'error');
+            confirmBtn.disabled = false;
+            btnText.style.display = 'inline';
+            btnSpinner.style.display = 'none';
+            return;
+        }
+        
+        
+        const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                shippingAddress,
+                paymentMethod,
+                notes
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.status === 'success') {
+            
+            closeCheckoutModal();
+            
+            showAlert('✅ ¡Pedido realizado exitosamente! Orden: ' + (data.payload.order?.orderNumber || ''), 'success');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            
+        } else {
+            
+            
+            let errorMessage = data.message || 'Error al procesar el pedido';
+            
+            if (data.message && data.message.includes('Stock insuficiente')) {
+                errorMessage = '⚠️ Algunos productos no tienen stock suficiente. Por favor revisa tu carrito.';
+            } else if (data.message && data.message.includes('Carrito')) {
+                errorMessage = '⚠️ ' + data.message;
+            }
+            
+            showCheckoutAlert(errorMessage, 'error');
+        }
+        
+    } catch (error) {
+        
+        showCheckoutAlert('Error de conexión. Por favor intenta de nuevo.', 'error');
+    } finally {
+        confirmBtn.disabled = false;
+        btnText.style.display = 'inline';
+        btnSpinner.style.display = 'none';
+    }
+}
+
+function showCheckoutAlert(message, type) {
+    const alertContainer = document.getElementById('checkoutAlerts');
+    if (!alertContainer) return;
+    
+    const alertTypes = {
+        success: { class: 'alert-success', icon: '✅' },
+        error: { class: 'alert-danger', icon: '❌' },
+        warning: { class: 'alert-warning', icon: '⚠️' },
+        info: { class: 'alert-info', icon: 'ℹ️' }
+    };
+    
+    const alert = alertTypes[type] || alertTypes.info;
+    
+    const alertHTML = `
+        <div class="alert ${alert.class}" style="margin-top: 15px;">
+            ${alert.icon} ${message}
+            <button onclick="this.parentElement.remove()" class="alert-close">&times;</button>
+        </div>
+    `;
+    
+    alertContainer.innerHTML = alertHTML;
+    
+    setTimeout(() => {
+        const alertElement = alertContainer.querySelector('.alert');
+        if (alertElement) alertElement.remove();
+    }, 5000);
 }
 
 // Guardar para después
 function saveForLater() {
     showAlert('Carrito guardado en tu cuenta', 'success');
-    // Implementar guardar para después
 }
 
 // Mostrar alertas
@@ -415,46 +846,20 @@ function showAlert(message, type) {
     
     alertContainer.innerHTML = alertHtml;
     
-    // Auto-remover después de 5 segundos
     setTimeout(() => {
         const alert = alertContainer.querySelector('.alert');
         if (alert) alert.remove();
     }, 5000);
 }
 
-// Debug: Mostrar información del carrito en consola
-console.log('🛒 Carrito ID:', cartId);
-console.log('📊 Información de debug disponible en window.cartDebug');
-
-// Función de debug
-window.cartDebug = function() {
-    const productItems = document.querySelectorAll('.cart-product-item');
-    console.log('=== CART DEBUG INFO ===');
-    console.log('Products found:', productItems.length);
-    
-    productItems.forEach((item, index) => {
-        console.log(`Product ${index + 1}:`, {
-            id: item.dataset.productId,
-            quantity: item.dataset.quantity,
-            price: item.dataset.price,
-            currentInputValue: item.querySelector('.quantity-input')?.value
-        });
-    });
-    
-    return calculateTotals();
-};
-
 function setupQuantityControls() {
-    // Configurar listeners para inputs de cantidad
     document.querySelectorAll('.quantity-input').forEach(input => {
         const productId = input.id.replace('quantity-', '');
         
-        // Al cambiar el valor manualmente
         input.addEventListener('change', () => {
             handleQuantityInputChange(productId);
         });
         
-        // Al presionar Enter
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 handleQuantityInputChange(productId);
@@ -470,8 +875,6 @@ window.updateQuantityByButton = function(productId, delta) {
     const currentQuantity = parseInt(quantityInput.value) || 1;
     const newQuantity = currentQuantity + delta;
     
-    console.log(`🔲 Botón presionado: ${productId}, delta: ${delta}, nueva cantidad: ${newQuantity}`);
-    
     if (newQuantity < 1) {
         if (confirm('¿Quieres eliminar este producto del carrito?')) {
             removeFromCart(productId);
@@ -479,50 +882,18 @@ window.updateQuantityByButton = function(productId, delta) {
         return;
     }
     
-    // Actualizar input visualmente primero
     quantityInput.value = newQuantity;
-    
-    // Recalcular totales inmediatamente para feedback visual
     calculateTotals();
-    
-    // Luego sincronizar con servidor
     updateQuantity(productId, newQuantity);
 };
 
-// Inicializar cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Página cargada, configurando carrito...');
-    
-    // Configurar controles de cantidad
     setupQuantityControls();
     
-    // Calcular totales iniciales
     setTimeout(() => {
         calculateTotals();
     }, 100);
     
-
     setInterval(syncWithServer, 30000);
 });
-
-// Debug
-window.cartDebugAdvanced = function() {
-    console.log('=== CART DEBUG AVANZADO ===');
-    
-    const productItems = document.querySelectorAll('.cart-product-item');
-    console.log('Productos en DOM:', productItems.length);
-    
-    productItems.forEach((item, index) => {
-        const quantityInput = item.querySelector('.quantity-input');
-        console.log(`Producto ${index + 1}:`, {
-            id: item.dataset.productId,
-            datasetQuantity: item.dataset.quantity,
-            inputValue: quantityInput?.value,
-            inputDefaultValue: quantityInput?.defaultValue,
-            price: item.dataset.price
-        });
-    });
-    
-    return calculateTotals();
-};
 </script>

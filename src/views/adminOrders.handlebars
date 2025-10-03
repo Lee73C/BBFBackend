@@ -1,0 +1,359 @@
+<div class="page-header">
+    <h2>📦 Panel de Administración - Órdenes</h2>
+    <p>Gestiona todas las órdenes del sistema</p>
+</div>
+
+<!-- Alertas -->
+<div id="alertContainer"></div>
+
+<!-- Estadísticas rápidas -->
+{{#if stats}}
+<div class="stats-bar">
+    <div class="stat-item">
+        <strong>Total Órdenes:</strong> {{stats.totalOrders}}
+    </div>
+    <div class="stat-item">
+        <strong>Pendientes:</strong> <span style="color: #ffc107;">{{stats.pendingOrders}}</span>
+    </div>
+    <div class="stat-item">
+        <strong>En Proceso:</strong> <span style="color: #17a2b8;">{{stats.processingOrders}}</span>
+    </div>
+    <div class="stat-item">
+        <strong>Entregadas:</strong> <span style="color: #28a745;">{{stats.deliveredOrders}}</span>
+    </div>
+    <div class="stat-item">
+        <strong>Canceladas:</strong> <span style="color: #dc3545;">{{stats.cancelledOrders}}</span>
+    </div>
+    <div class="stat-item">
+        <strong>Ingresos Totales:</strong> <span style="color: #28a745;">${{formatNumber stats.totalRevenue}}</span>
+    </div>
+</div>
+{{/if}}
+
+<!-- Filtros -->
+<div class="filters-section">
+    <form method="GET" action="/admin/orders">
+        <div class="filters-row">
+            <div class="filter-group">
+                <label for="status">Estado</label>
+                <select id="status" name="status">
+                    <option value="">Todos</option>
+                    <option value="pending" {{#eq filters.status 'pending'}}selected{{/eq}}>Pendiente</option>
+                    <option value="processing" {{#eq filters.status 'processing'}}selected{{/eq}}>En Proceso</option>
+                    <option value="shipped" {{#eq filters.status 'shipped'}}selected{{/eq}}>Enviado</option>
+                    <option value="delivered" {{#eq filters.status 'delivered'}}selected{{/eq}}>Entregado</option>
+                    <option value="cancelled" {{#eq filters.status 'cancelled'}}selected{{/eq}}>Cancelado</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="paymentStatus">Estado de Pago</label>
+                <select id="paymentStatus" name="paymentStatus">
+                    <option value="">Todos</option>
+                    <option value="pending" {{#eq filters.paymentStatus 'pending'}}selected{{/eq}}>Pendiente</option>
+                    <option value="approved" {{#eq filters.paymentStatus 'approved'}}selected{{/eq}}>Aprobado</option>
+                    <option value="rejected" {{#eq filters.paymentStatus 'rejected'}}selected{{/eq}}>Rechazado</option>
+                </select>
+            </div>
+            
+            <div class="filter-actions">
+                <button type="submit" class="btn-primary">Filtrar</button>
+                <a href="/admin/orders" class="btn-clear">Limpiar</a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Lista de órdenes -->
+{{#if orders.length}}
+<div class="orders-list">
+    {{#each orders}}
+    <div class="order-card">
+        <div class="order-header">
+            <div class="order-number">
+                <h3>📋 {{this.orderNumber}}</h3>
+                <span class="order-date">{{formatDate this.createdAt}}</span>
+            </div>
+            <div class="order-status-badges">
+                <span class="status-badge status-{{this.status}}">{{this.status}}</span>
+                <span class="payment-badge payment-{{this.payment.status}}">Pago: {{this.payment.status}}</span>
+            </div>
+        </div>
+
+        <div class="order-body">
+            <div class="order-customer">
+                <h4>👤 Cliente</h4>
+                <p><strong>{{this.user.first_name}} {{this.user.last_name}}</strong></p>
+                <p>{{this.user.email}}</p>
+            </div>
+
+            <div class="order-shipping">
+                <h4>📍 Dirección de Envío</h4>
+                <p>{{this.shippingAddress.street}}</p>
+                <p>{{this.shippingAddress.city}}, {{this.shippingAddress.state}}</p>
+                <p>CP: {{this.shippingAddress.zipCode}}</p>
+                <p>Tel: {{this.shippingAddress.phone}}</p>
+            </div>
+
+            <div class="order-items">
+                <h4>📦 Productos ({{this.items.length}})</h4>
+                <ul>
+                    {{#each this.items}}
+                    <li>{{this.quantity}}x {{this.productSnapshot.title}} - ${{formatNumber this.subtotal}}</li>
+                    {{/each}}
+                </ul>
+            </div>
+
+            <div class="order-totals">
+                <h4>💰 Totales</h4>
+                <p>Subtotal: ${{formatNumber this.subtotal}}</p>
+                <p>Envío: ${{formatNumber this.shipping}}</p>
+                <p>Impuestos: ${{formatNumber this.tax}}</p>
+                <p><strong>Total: ${{formatNumber this.total}}</strong></p>
+            </div>
+        </div>
+
+        <div class="order-actions">
+            <button onclick="viewOrderDetails('{{this._id}}')" class="btn-info">👁️ Ver Detalles</button>
+            
+            {{#if (eq this.status 'pending')}}
+                <button onclick="updateOrderStatus('{{this._id}}', 'processing')" class="btn-primary">✅ Procesar</button>
+            {{/if}}
+            
+            {{#if (eq this.status 'processing')}}
+                <button onclick="updateOrderStatus('{{this._id}}', 'shipped')" class="btn-success">📦 Marcar Enviado</button>
+            {{/if}}
+            
+            {{#if (eq this.status 'shipped')}}
+                <button onclick="updateOrderStatus('{{this._id}}', 'delivered')" class="btn-success">✅ Marcar Entregado</button>
+            {{/if}}
+            
+            {{#if (or (eq this.status 'pending') (eq this.status 'processing'))}}
+                <button onclick="cancelOrder('{{this._id}}')" class="btn-danger">❌ Cancelar Orden</button>
+            {{/if}}
+        </div>
+    </div>
+    {{/each}}
+</div>
+
+<!-- Paginación -->
+{{#if (gt pagination.totalPages 1)}}
+<div class="pagination-section">
+    <div class="pagination-info">
+        Mostrando página {{pagination.page}} de {{pagination.totalPages}} ({{pagination.total}} órdenes)
+    </div>
+    
+    <div class="pagination-controls">
+        {{#if pagination.hasPrevPage}}
+        <a href="?page={{pagination.prevPage}}" class="btn-pagination">⬅️ Anterior</a>
+        {{/if}}
+        
+        <span class="btn-pagination current-page">{{pagination.page}}</span>
+        
+        {{#if pagination.hasNextPage}}
+        <a href="?page={{pagination.nextPage}}" class="btn-pagination">Siguiente ➡️</a>
+        {{/if}}
+    </div>
+</div>
+{{/if}}
+
+{{else}}
+<div class="no-products">
+    <div class="no-products-icon">📦</div>
+    <h3>No hay órdenes</h3>
+    <p>No se encontraron órdenes con los filtros seleccionados.</p>
+</div>
+{{/if}}
+
+<!-- Modal de detalles -->
+<div id="orderDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>📋 Detalles de la Orden</h2>
+            <button onclick="closeOrderDetails()" style="background: none; border: none; font-size: 28px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="orderDetailsContent"></div>
+    </div>
+</div>
+
+<style>
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.order-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 15px;
+}
+
+.order-number h3 {
+    margin: 0 0 5px 0;
+}
+
+.order-date {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.order-status-badges {
+    display: flex;
+    gap: 10px;
+}
+
+.status-badge, .payment-badge {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.status-pending { background: #fff3cd; color: #856404; }
+.status-processing { background: #d1ecf1; color: #0c5460; }
+.status-shipped { background: #d1ecf1; color: #0c5460; }
+.status-delivered { background: #d4edda; color: #155724; }
+.status-cancelled { background: #f8d7da; color: #721c24; }
+
+.payment-pending { background: #fff3cd; color: #856404; }
+.payment-approved { background: #d4edda; color: #155724; }
+.payment-rejected { background: #f8d7da; color: #721c24; }
+
+.order-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.order-body h4 {
+    margin: 0 0 10px 0;
+    color: #000;
+    font-size: 1rem;
+}
+
+.order-body p {
+    margin: 3px 0;
+    font-size: 0.9rem;
+}
+
+.order-items ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.order-items li {
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.order-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+</style>
+
+<script>
+const token = localStorage.getItem('bbfermentos_auth_token');
+
+async function viewOrderDetails(orderId) {
+    try {
+        const response = await fetch(`/api/orders/${orderId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const order = data.payload;
+            document.getElementById('orderDetailsContent').innerHTML = `
+                <div style="line-height: 1.8;">
+                    <h3>Orden: ${order.orderNumber}</h3>
+                    <p><strong>Estado:</strong> ${order.status}</p>
+                    <p><strong>Pago:</strong> ${order.payment.status}</p>
+                    <p><strong>Método de Pago:</strong> ${order.payment.method}</p>
+                    <p><strong>Total:</strong> $${order.total.toLocaleString('es-CL')}</p>
+                    ${order.notes ? `<p><strong>Notas:</strong> ${order.notes}</p>` : ''}
+                </div>
+            `;
+            document.getElementById('orderDetailsModal').style.display = 'block';
+        }
+    } catch (error) {
+        
+    }
+}
+
+function closeOrderDetails() {
+    document.getElementById('orderDetailsModal').style.display = 'none';
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+    if (!confirm(`¿Cambiar estado a "${newStatus}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/orders/${orderId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status: newStatus, notes: `Estado actualizado a ${newStatus}` })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            
+            window.location.reload();
+        } else {
+            
+        }
+    } catch (error) {
+        
+    }
+}
+
+async function cancelOrder(orderId) {
+    const reason = prompt('¿Motivo de cancelación?');
+    if (!reason) return;
+    
+    try {
+        const response = await fetch(`/api/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ reason })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            
+            window.location.reload();
+        } else {
+            
+        }
+    } catch (error) {
+        
+    }
+}
+</script>

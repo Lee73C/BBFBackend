@@ -1,108 +1,66 @@
-
-// Configuración global
-const AUTH_CONFIG = {
-    LOGIN_ENDPOINT: '/api/sessions/login',
-    REGISTER_ENDPOINT: '/api/users/register',
-    CURRENT_ENDPOINT: '/api/sessions/current',
-    TOKEN_KEY: 'bbfermentos_auth_token',
-    USER_KEY: 'bbfermentos_user_data',
-    REDIRECT_KEY: 'bbfermentos_redirect_after_login'
+// ==========================================
+// CONFIGURACIÓN
+// ==========================================
+const AUTH = {
+  ENDPOINTS: {
+    LOGIN: '/api/sessions/login',
+    REGISTER: '/api/users/register',
+    CURRENT: '/api/sessions/current',
+    LOGOUT: '/api/sessions/logout',
+    FORGOT_PASSWORD: '/api/sessions/forgot-password',
+    RESET_PASSWORD: '/api/sessions/reset-password'
+  },
+  
+  STORAGE: {
+    TOKEN: 'bbfermentos_auth_token',
+    USER: 'bbfermentos_user_data',
+    REDIRECT: 'bbfermentos_redirect_after_login'
+  }
 };
 
-// Mostrar alertas
-function showAlert(message, type = 'info', container = 'alertContainer') {
-    const alertContainer = document.getElementById(container);
-    if (!alertContainer) return;
-
-    const alertTypes = {
-        success: { class: 'alert-success', icon: '✅' },
-        error: { class: 'alert-danger', icon: '❌' },
-        warning: { class: 'alert-warning', icon: '⚠️' },
-        info: { class: 'alert-info', icon: 'ℹ️' }
-    };
-
-    const alert = alertTypes[type] || alertTypes.info;
-    
-    const alertHtml = `
-        <div class="alert ${alert.class}" style="margin-bottom: 15px;">
-            ${alert.icon} ${message}
-            <button onclick="this.parentElement.remove()" class="alert-close">&times;</button>
-        </div>
-    `;
-    
-    alertContainer.innerHTML = alertHtml;
-    
-    // Auto-remover después de 5 segundos
-    setTimeout(() => {
-        const alertElement = alertContainer.querySelector('.alert');
-        if (alertElement) alertElement.remove();
-    }, 5000);
-}
-
-// Mostrar error en campo específico
-function showFieldError(fieldId, message) {
-    const errorElement = document.getElementById(fieldId + 'Error');
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
+// ==========================================
+// GESTIÓN DE TOKENS Y STORAGE
+// ==========================================
+const Storage = {
+  saveAuth(token, userData) {
+    localStorage.setItem(AUTH.STORAGE.TOKEN, token);
+    if (userData) {
+      localStorage.setItem(AUTH.STORAGE.USER, JSON.stringify(userData));
     }
-    
-    const field = document.getElementById(fieldId);
-    if (field) {
-        field.classList.add('error');
-    }
-}
+    document.cookie = `bbfermentos_auth_token=${token}; path=/; max-age=86400`;
+  },
+  
+  getToken() {
+    return localStorage.getItem(AUTH.STORAGE.TOKEN);
+  },
+  
+  getUser() {
+    const userData = localStorage.getItem(AUTH.STORAGE.USER);
+    return userData ? JSON.parse(userData) : null;
+  },
+  
+  clear() {
+    localStorage.removeItem(AUTH.STORAGE.TOKEN);
+    localStorage.removeItem(AUTH.STORAGE.USER);
+    document.cookie = 'bbfermentos_auth_token=; path=/; max-age=0';
+  },
+  
+  isAuthenticated() {
+    return !!this.getToken();
+  }
+};
 
-// Limpiar error de campo
-function clearFieldError(fieldId) {
-    const errorElement = document.getElementById(fieldId + 'Error');
-    if (errorElement) {
-        errorElement.textContent = '';
-        errorElement.style.display = 'none';
-    }
-    
-    const field = document.getElementById(fieldId);
-    if (field) {
-        field.classList.remove('error');
-    }
-}
-
-// Limpiar todos los errores
-function clearAllErrors() {
-    const errorElements = document.querySelectorAll('.field-error');
-    errorElements.forEach(el => {
-        el.textContent = '';
-        el.style.display = 'none';
-    });
-    
-    const fields = document.querySelectorAll('.form-input');
-    fields.forEach(field => field.classList.remove('error'));
-}
-
-// Toggle password visibility
-function togglePassword(fieldId) {
-    const field = document.getElementById(fieldId);
-    const toggleBtn = field.parentElement.querySelector('.password-toggle');
-    
-    if (field.type === 'password') {
-        field.type = 'text';
-        toggleBtn.textContent = '🙈';
-    } else {
-        field.type = 'password';
-        toggleBtn.textContent = '👁️';
-    }
-}
-
-// Validar email
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-// Validar fuerza de contraseña
-function getPasswordStrength(password) {
-    if (password.length < 6) return { strength: 'weak', message: 'Muy débil - Mínimo 6 caracteres' };
-    if (password.length < 8) return { strength: 'fair', message: 'Regular - Mejor si tiene 8+ caracteres' };
+// ==========================================
+// VALIDACIONES
+// ==========================================
+const Validators = {
+  email(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  },
+  
+  passwordStrength(password) {
+    if (password.length < 6) return { level: 'weak', message: 'Muy débil' };
+    if (password.length < 8) return { level: 'fair', message: 'Regular' };
     
     let score = 0;
     if (/[a-z]/.test(password)) score++;
@@ -110,561 +68,399 @@ function getPasswordStrength(password) {
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
     
-    if (score >= 3) return { strength: 'strong', message: 'Fuerte ✅' };
-    if (score >= 2) return { strength: 'medium', message: 'Buena - Agrega números o símbolos' };
-    return { strength: 'fair', message: 'Regular - Agrega mayúsculas y números' };
-}
-
-// Guardar token de autenticación
-function saveAuthToken(token, userData = null) {
-    localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
-    if (userData) {
-        localStorage.setItem(AUTH_CONFIG.USER_KEY, JSON.stringify(userData));
-    }
-    console.log('🔐 Token guardado correctamente');
-}
-
-// Obtener token de autenticación
-function getAuthToken() {
-    return localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
-}
-
-// Obtener datos del usuario
-function getUserData() {
-    const userData = localStorage.getItem(AUTH_CONFIG.USER_KEY);
-    return userData ? JSON.parse(userData) : null;
-}
-
-// Limpiar datos de autenticación
-function clearAuthData() {
-    localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
-    localStorage.removeItem(AUTH_CONFIG.USER_KEY);
-    console.log('🗑️ Datos de autenticación eliminados');
-}
-
-// Verificar si el usuario está autenticado
-function isAuthenticated() {
-    return !!getAuthToken();
-}
-
-function initializeLoginForm() {
-    const form = document.getElementById('loginForm');
-    if (!form) return;
-
-    // Limpiar errores al escribir
-    form.querySelectorAll('.form-input').forEach(input => {
-        input.addEventListener('input', () => {
-            clearFieldError(input.id);
-        });
-    });
-
-    // Manejar submit del formulario
-    form.addEventListener('submit', handleLogin);
-
-    console.log('🔐 Formulario de login inicializado');
-}
-
-async function handleLogin(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const formData = new FormData(form);
-    const loginBtn = document.getElementById('loginBtn');
-    const btnText = loginBtn.querySelector('.btn-text');
-    const btnSpinner = loginBtn.querySelector('.btn-spinner');
-    
-    // Limpiar errores previos
-    clearAllErrors();
-    
-    // Obtener datos del formulario
-    const email = formData.get('email').trim();
-    const password = formData.get('password');
-    const rememberMe = formData.get('rememberMe') === 'on';
-    
-    // Validaciones básicas
-    if (!email) {
-        showFieldError('email', 'El email es requerido');
-        return;
-    }
-    
-    if (!isValidEmail(email)) {
-        showFieldError('email', 'Formato de email inválido');
-        return;
-    }
-    
-    if (!password) {
-        showFieldError('password', 'La contraseña es requerida');
-        return;
-    }
-    
-    // UI de carga
-    loginBtn.disabled = true;
-    btnText.style.display = 'none';
-    btnSpinner.style.display = 'inline';
-    
-    try {
-        console.log('🔐 Iniciando login...', { email, rememberMe });
-        
-        const response = await fetch(AUTH_CONFIG.LOGIN_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.status === 'success') {
-            // Login exitoso
-            const { token, user } = data.payload;
-            
-            // Guardar token y datos del usuario
-            saveAuthToken(token, user);
-            
-            showAlert('¡Login exitoso! Redirigiendo...', 'success');
-            
-            console.log('✅ Login exitoso:', user);
-            
-            // Redirigir después de un momento
-            setTimeout(() => {
-                const redirectUrl = localStorage.getItem(AUTH_CONFIG.REDIRECT_KEY) || '/products';
-                localStorage.removeItem(AUTH_CONFIG.REDIRECT_KEY);
-                window.location.href = redirectUrl;
-            }, 1500);
-            
-        } else {
-            // Error de login
-            const errorMessage = data.message || 'Error en las credenciales';
-            showAlert(errorMessage, 'error');
-            
-            if (errorMessage.toLowerCase().includes('email')) {
-                showFieldError('email', errorMessage);
-            } else if (errorMessage.toLowerCase().includes('password')) {
-                showFieldError('password', errorMessage);
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ Error en login:', error);
-        showAlert('Error de conexión. Intenta de nuevo.', 'error');
-    } finally {
-        // Restaurar UI
-        loginBtn.disabled = false;
-        btnText.style.display = 'inline';
-        btnSpinner.style.display = 'none';
-    }
-}
-
-
-function initializeRegisterForm() {
-    const form = document.getElementById('registerForm');
-    if (!form) return;
-
-    // Limpiar errores al escribir
-    form.querySelectorAll('.form-input').forEach(input => {
-        input.addEventListener('input', () => {
-            clearFieldError(input.id);
-            
-            // Validación en tiempo real para contraseña
-            if (input.id === 'password') {
-                updatePasswordStrength(input.value);
-            }
-            
-            // Validación para confirmación de contraseña
-            if (input.id === 'confirmPassword') {
-                validatePasswordMatch();
-            }
-        });
-    });
-
-    // Manejar submit del formulario
-    form.addEventListener('submit', handleRegister);
-
-    console.log('👤 Formulario de registro inicializado');
-}
-
-function updatePasswordStrength(password) {
-    const strengthElement = document.getElementById('passwordStrength');
-    if (!strengthElement) return;
-    
-    if (!password) {
-        strengthElement.innerHTML = '';
-        return;
-    }
-    
-    const { strength, message } = getPasswordStrength(password);
-    const colors = {
-        weak: '#dc3545',
-        fair: '#ffc107', 
-        medium: '#fd7e14',
-        strong: '#28a745'
-    };
-    
-    strengthElement.innerHTML = `
-        <div class="password-strength-bar">
-            <div class="strength-indicator ${strength}" style="background-color: ${colors[strength]}"></div>
-        </div>
-        <span class="strength-text" style="color: ${colors[strength]}">${message}</span>
-    `;
-}
-
-function validatePasswordMatch() {
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    if (confirmPassword && password !== confirmPassword) {
-        showFieldError('confirmPassword', 'Las contraseñas no coinciden');
-        return false;
-    } else if (confirmPassword) {
-        clearFieldError('confirmPassword');
-        return true;
-    }
-    return true;
-}
-
-async function handleRegister(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const formData = new FormData(form);
-    const registerBtn = document.getElementById('registerBtn');
-    const btnText = registerBtn.querySelector('.btn-text');
-    const btnSpinner = registerBtn.querySelector('.btn-spinner');
-    
-    // Limpiar errores previos
-    clearAllErrors();
-    
-    // DEBUG: Verificar datos del formulario
-    console.log('🔍 DATOS DEL FORMULARIO:');
-    for (let [key, value] of formData.entries()) {
-        console.log(`${key}: ${key === 'password' ? '***' : value}`);
-    }
-    
-    // Obtener datos del formulario
-    const userData = {
-        first_name: formData.get('first_name')?.trim(),
-        last_name: formData.get('last_name')?.trim(),
-        email: formData.get('email')?.trim(),
-        age: formData.get('age') ? parseInt(formData.get('age')) : undefined,
-        password: formData.get('password')
-    };
-    
-    const confirmPassword = formData.get('confirmPassword');
-    
-    console.log('🔍 DATOS PROCESADOS:', {
-        ...userData,
-        password: userData.password ? '***' : 'MISSING',
-        confirmPassword: confirmPassword ? '***' : 'MISSING'
-    });
-    
-    // Validaciones
-    let hasErrors = false;
-    
-    if (!userData.first_name) {
-        showFieldError('firstName', 'El nombre es requerido');
-        hasErrors = true;
-    }
-    
-    if (!userData.last_name) {
-        showFieldError('lastName', 'El apellido es requerido');
-        hasErrors = true;
-    }
-    
-    if (!userData.email) {
-        showFieldError('email', 'El email es requerido');
-        hasErrors = true;
-    } else if (!isValidEmail(userData.email)) {
-        showFieldError('email', 'Formato de email inválido');
-        hasErrors = true;
-    }
-    
-    if (userData.age && (userData.age < 18 || userData.age > 120)) {
-        showFieldError('age', 'La edad debe estar entre 18 y 120 años');
-        hasErrors = true;
-    }
-    
-    if (!userData.password) {
-        showFieldError('password', 'La contraseña es requerida');
-        hasErrors = true;
-    } else if (userData.password.length < 6) {
-        showFieldError('password', 'La contraseña debe tener al menos 6 caracteres');
-        hasErrors = true;
-    }
-    
-    if (userData.password !== confirmPassword) {
-        showFieldError('confirmPassword', 'Las contraseñas no coinciden');
-        hasErrors = true;
-    }
-    
-    if (hasErrors) {
-        console.log('❌ Errores de validación, no enviando');
-        return;
-    }
-    
-    // Limpiar age si está vacío
-    if (!userData.age) {
-        delete userData.age;
-    }
-    
-    // UI de carga
-    registerBtn.disabled = true;
-    btnText.style.display = 'none';
-    btnSpinner.style.display = 'inline';
-    
-    try {
-        console.log('👤 Enviando datos de registro...', userData);
-        
-        const response = await fetch(AUTH_CONFIG.REGISTER_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(userData)
-        });
-        
-        console.log('📡 Respuesta del servidor:', response.status, response.statusText);
-        
-        const data = await response.json();
-        console.log('📡 Datos de respuesta:', data);
-        
-        if (response.ok && data.status === 'success') {
-            // Registro exitoso
-            showAlert('¡Cuenta creada exitosamente! Iniciando sesión...', 'success');
-            
-            console.log('✅ Registro exitoso:', data.payload);
-            
-            // Auto-login después del registro
-            setTimeout(async () => {
-                try {
-                    console.log('🔐 Intentando auto-login...');
-                    
-                    const loginResponse = await fetch(AUTH_CONFIG.LOGIN_ENDPOINT, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            email: userData.email,
-                            password: userData.password
-                        })
-                    });
-                    
-                    const loginData = await loginResponse.json();
-                    console.log('🔐 Respuesta de auto-login:', loginData);
-                    
-                    if (loginResponse.ok && loginData.status === 'success') {
-                        const { token, user } = loginData.payload;
-                        saveAuthToken(token, user);
-                        
-                        showAlert('¡Bienvenido a BBFermentos!', 'success');
-                        
-                        setTimeout(() => {
-                            window.location.href = '/products';
-                        }, 1500);
-                    } else {
-                        showAlert('Cuenta creada. Por favor inicia sesión manualmente.', 'info');
-                        setTimeout(() => {
-                            window.location.href = '/login';
-                        }, 2000);
-                    }
-                } catch (error) {
-                    console.error('❌ Error en auto-login:', error);
-                    showAlert('Cuenta creada. Redirigiendo al login...', 'info');
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 2000);
-                }
-            }, 1500);
-            
-        } else {
-            // Error de registro
-            const errorMessage = data.message || 'Error al crear la cuenta';
-            console.error('❌ Error de registro:', errorMessage);
-            showAlert(errorMessage, 'error');
-            
-            // Mostrar errores específicos de campos
-            if (data.errors && Array.isArray(data.errors)) {
-                data.errors.forEach(error => {
-                    console.log('❌ Error específico:', error);
-                    if (error.path) {
-                        showFieldError(error.path, error.msg || error.message);
-                    }
-                });
-            } else if (errorMessage.toLowerCase().includes('email')) {
-                showFieldError('email', errorMessage);
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ Error de conexión en registro:', error);
-        showAlert('Error de conexión. Intenta de nuevo.', 'error');
-    } finally {
-        // Restaurar UI
-        registerBtn.disabled = false;
-        btnText.style.display = 'inline';
-        btnSpinner.style.display = 'none';
-    }
-}
-
-
-async function verifyAuthentication() {
-    const token = getAuthToken();
-    if (!token) return false;
-    
-    try {
-        const response = await fetch(AUTH_CONFIG.CURRENT_ENDPOINT, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.status === 'success') {
-                // Actualizar datos del usuario
-                saveAuthToken(token, data.payload);
-                return true;
-            }
-        }
-        
-        // Token inválido, limpiar datos
-        clearAuthData();
-        return false;
-        
-    } catch (error) {
-        console.error('❌ Error verificando autenticación:', error);
-        return false;
-    }
-}
-
-
-function logout() {
-    clearAuthData();
-    showAlert('Sesión cerrada correctamente', 'info');
-    setTimeout(() => {
-        window.location.href = '/login';
-    }, 1000);
-}
-
-
-function requireAuth(redirectUrl = '/login') {
-    if (!isAuthenticated()) {
-        // Guardar URL actual para redirigir después del login
-        localStorage.setItem(AUTH_CONFIG.REDIRECT_KEY, window.location.pathname + window.location.search);
-        window.location.href = redirectUrl;
-        return false;
-    }
-    return true;
-}
-
-function requireGuest(redirectUrl = '/products') {
-    if (isAuthenticated()) {
-        window.location.href = redirectUrl;
-        return false;
-    }
-    return true;
-}
-
-
-function integrateWithExistingCart() {
-    // Verificar si hay un carrito en localStorage
-    const existingCartId = localStorage.getItem('bbfermentos_cart_id');
-    const userData = getUserData();
-    
-    if (existingCartId && userData && userData.cart) {
-        console.log('🛒 Integrando carrito existente con usuario autenticado');
-        
-        // Si el usuario tiene un carrito diferente, podemos migrar o fusionar
-        if (existingCartId !== userData.cart) {
-            console.log('🔄 Detectado carrito diferente, manteniendo el actual');
-            // Aquí podrías implementar lógica para fusionar carritos
-        }
-    }
-}
-
-
-// Función que se ejecuta en todas las páginas
-function initializeAuth() {
-    // Verificar autenticación en páginas protegidas
-    const protectedPaths = ['/admin', '/profile', '/orders'];
-    const currentPath = window.location.pathname;
-    
-    if (protectedPaths.some(path => currentPath.startsWith(path))) {
-        requireAuth();
-    }
-    
-    // Verificar guest en páginas de auth
-    const guestPaths = ['/login', '/register'];
-    if (guestPaths.includes(currentPath)) {
-        requireGuest();
-    }
-    
-    // Integrar con carrito existente si está autenticado
-    if (isAuthenticated()) {
-        integrateWithExistingCart();
-    }
-    
-    // Actualizar UI según estado de autenticación
-    updateAuthUI();
-}
-
-function updateAuthUI() {
-    const userData = getUserData();
-    const isAuth = isAuthenticated();
-    
-    // Actualizar navegación
-    const authLinks = document.querySelectorAll('.auth-link');
-    authLinks.forEach(link => {
-        if (isAuth) {
-            if (link.dataset.authRequired === 'false') {
-                link.style.display = 'none';
-            } else {
-                link.style.display = 'inline';
-                if (userData && link.textContent.includes('Usuario')) {
-                    link.textContent = `👤 ${userData.first_name}`;
-                }
-            }
-        } else {
-            if (link.dataset.authRequired === 'true') {
-                link.style.display = 'none';
-            } else {
-                link.style.display = 'inline';
-            }
-        }
-    });
-}
-
-
-window.addEventListener('unhandledrejection', event => {
-    console.error('Promise rechazada sin manejar:', event.reason);
-    if (event.reason && event.reason.status === 401) {
-        clearAuthData();
-        showAlert('Sesión expirada. Por favor inicia sesión de nuevo.', 'warning');
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 2000);
-    }
-});
-
-
-// Hacer funciones disponibles globalmente
-window.BBAuth = {
-    login: handleLogin,
-    register: handleRegister,
-    logout: logout,
-    isAuthenticated: isAuthenticated,
-    getUserData: getUserData,
-    requireAuth: requireAuth,
-    requireGuest: requireGuest,
-    togglePassword: togglePassword,
-    showAlert: showAlert
+    if (score >= 3) return { level: 'strong', message: 'Fuerte ✅' };
+    if (score >= 2) return { level: 'medium', message: 'Buena' };
+    return { level: 'fair', message: 'Regular' };
+  }
 };
 
-// Inicializar cuando se carga el DOM
+// ==========================================
+// UI HELPERS
+// ==========================================
+const UI = {
+  showAlert(message, type = 'info', containerId = 'alertContainer') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const classes = { success: 'alert-success', error: 'alert-danger', warning: 'alert-warning', info: 'alert-info' };
+    
+    container.innerHTML = `
+      <div class="alert ${classes[type]}" style="margin-bottom: 15px;">
+        ${icons[type]} ${message}
+        <button onclick="this.parentElement.remove()" class="alert-close">&times;</button>
+      </div>
+    `;
+    
+    setTimeout(() => container.querySelector('.alert')?.remove(), 5000);
+  },
+  
+  showFieldError(fieldId, message) {
+    const errorEl = document.getElementById(fieldId + 'Error');
+    const field = document.getElementById(fieldId);
+    
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+    }
+    if (field) field.classList.add('error');
+  },
+  
+  clearFieldError(fieldId) {
+    const errorEl = document.getElementById(fieldId + 'Error');
+    const field = document.getElementById(fieldId);
+    
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
+    }
+    if (field) field.classList.remove('error');
+  },
+  
+  clearAllErrors() {
+    document.querySelectorAll('.field-error').forEach(el => {
+      el.textContent = '';
+      el.style.display = 'none';
+    });
+    document.querySelectorAll('.form-input').forEach(field => 
+      field.classList.remove('error')
+    );
+  },
+  
+  setButtonLoading(buttonId, loading) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    
+    const text = btn.querySelector('.btn-text');
+    const spinner = btn.querySelector('.btn-spinner');
+    
+    btn.disabled = loading;
+    if (text) text.style.display = loading ? 'none' : 'inline';
+    if (spinner) spinner.style.display = loading ? 'inline' : 'none';
+  }
+};
+
+// ==========================================
+// API CALLS
+// ==========================================
+const API = {
+  async post(endpoint, data) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return { response, data: await response.json() };
+  },
+  
+  async get(endpoint, token) {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return { response, data: await response.json() };
+  }
+};
+
+// ==========================================
+// AUTENTICACIÓN
+// ==========================================
+const Auth = {
+  async login(email, password) {
+    UI.clearAllErrors();
+    UI.setButtonLoading('loginBtn', true);
+    
+    try {
+      if (!Validators.email(email)) {
+        UI.showFieldError('email', 'Email inválido');
+        return;
+      }
+      
+      const { response, data } = await API.post(AUTH.ENDPOINTS.LOGIN, { email, password });
+      
+      if (response.ok && data.status === 'success') {
+        Storage.saveAuth(data.payload.token, data.payload.user);
+        
+        await this.syncUserCart(data.payload.user);
+        
+        UI.showAlert('¡Login exitoso!', 'success');
+        
+        setTimeout(() => {
+          const redirect = localStorage.getItem(AUTH.STORAGE.REDIRECT) || '/products';
+          localStorage.removeItem(AUTH.STORAGE.REDIRECT);
+          window.location.href = redirect;
+        }, 1500);
+      } else {
+        UI.showAlert(data.message || 'Credenciales inválidas', 'error');
+      }
+    } catch (error) {
+      UI.showAlert('Error de conexión', 'error');
+    } finally {
+      UI.setButtonLoading('loginBtn', false);
+    }
+  },
+  
+  async syncUserCart(user) {
+    try {
+      console.log('🔄 Iniciando sincronización de carrito...');
+      
+      const localCartId = localStorage.getItem('bbfermentos_cart_id');
+      
+      let userCartId = null;
+      if (user.cart) {
+        if (typeof user.cart === 'object' && user.cart._id) {
+          userCartId = user.cart._id.toString();
+        } else {
+          userCartId = user.cart.toString();
+        }
+      }
+      
+      console.log('📦 Local Cart:', localCartId);
+      console.log('👤 User Cart:', userCartId);
+      
+      if (!userCartId) {
+        console.log('⚠️ Usuario sin carrito');
+        localStorage.removeItem('bbfermentos_cart_id');
+        return;
+      }
+      
+      if (!localCartId || localCartId === userCartId) {
+        console.log('✅ Carrito ya sincronizado');
+        localStorage.setItem('bbfermentos_cart_id', userCartId);
+        localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
+        return;
+      }
+      
+      console.log('🔄 Migrando productos...');
+      
+      try {
+        const localCartResponse = await fetch(`/api/carts/${localCartId}`);
+        
+        if (localCartResponse.ok) {
+          const localCartData = await localCartResponse.json();
+          const localProducts = localCartData.cart.products || [];
+          
+          console.log(`📦 Productos en carrito local: ${localProducts.length}`);
+          
+          if (localProducts.length > 0) {
+            const token = localStorage.getItem('bbfermentos_auth_token');
+            
+            for (const item of localProducts) {
+              const productId = item.product._id || item.product;
+              const quantity = item.quantity;
+              
+              console.log(`➕ Agregando ${quantity}x ${productId}`);
+              
+              for (let i = 0; i < quantity; i++) {
+                await fetch(`/api/carts/${userCartId}/product/${productId}`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
+              }
+            }
+            
+            console.log('✅ Productos migrados');
+          }
+        }
+      } catch (migrateError) {
+        console.error('❌ Error al migrar productos:', migrateError);
+      }
+      
+      localStorage.setItem('bbfermentos_cart_id', userCartId);
+      localStorage.setItem('bbfermentos_cart_timestamp', Date.now().toString());
+      
+      console.log('✅ Sincronización completada');
+      
+    } catch (error) {
+      console.error('❌ Error en sincronización de carrito:', error);
+    }
+  },
+  
+  async register(userData) {
+    UI.clearAllErrors();
+    UI.setButtonLoading('registerBtn', true);
+    
+    try {
+      if (!Validators.email(userData.email)) {
+        UI.showFieldError('email', 'Email inválido');
+        return;
+      }
+      
+      if (userData.password.length < 6) {
+        UI.showFieldError('password', 'Mínimo 6 caracteres');
+        return;
+      }
+      
+      const confirmPassword = document.getElementById('confirmPassword')?.value;
+      if (confirmPassword && userData.password !== confirmPassword) {
+        UI.showFieldError('confirmPassword', 'Las contraseñas no coinciden');
+        UI.showAlert('Las contraseñas no coinciden', 'error');
+        return;
+      }
+      
+      const { response, data } = await API.post(AUTH.ENDPOINTS.REGISTER, userData);
+      
+      if (response.ok && data.status === 'success') {
+        UI.showAlert('¡Cuenta creada!', 'success');
+        setTimeout(() => this.login(userData.email, userData.password), 1500);
+      } else {
+        UI.showAlert(data.message || 'Error al registrar', 'error');
+      }
+    } catch (error) {
+      UI.showAlert('Error de conexión', 'error');
+    } finally {
+      UI.setButtonLoading('registerBtn', false);
+    }
+  },
+  
+  logout() {
+    Storage.clear();
+    localStorage.removeItem('bbfermentos_cart_id');
+    localStorage.removeItem('bbfermentos_cart_timestamp');
+    UI.showAlert('Sesión cerrada', 'info');
+    setTimeout(() => window.location.href = '/login', 1000);
+  },
+  
+  updateUI() {
+    const user = Storage.getUser();
+    const isAuth = Storage.isAuthenticated();
+    
+    document.querySelectorAll('.auth-link').forEach(link => {
+      const authRequired = link.dataset.authRequired === 'true';
+      const roleRequired = link.dataset.roleRequired;
+      
+      if (authRequired) {
+        if (isAuth && (!roleRequired || user?.role === roleRequired)) {
+          link.style.display = 'inline';
+          if (user && link.textContent.includes('Usuario')) {
+            link.textContent = `👤 ${user.first_name}`;
+          }
+        } else {
+          link.style.display = 'none';
+        }
+      } else {
+        link.style.display = isAuth ? 'none' : 'inline';
+      }
+    });
+  }
+};
+
+// ==========================================
+// FUNCIONES DE INICIALIZACIÓN
+// ==========================================
+
+function initializeLoginForm() {
+  const loginForm = document.getElementById('loginForm');
+  
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      await Auth.login(formData.get('email'), formData.get('password'));
+    });
+  }
+}
+
+function initializeRegisterForm() {
+  const registerForm = document.getElementById('registerForm');
+  
+  if (registerForm) {
+    const passwordField = document.getElementById('password');
+    const confirmPasswordField = document.getElementById('confirmPassword');
+    
+    function validatePasswordMatch() {
+      if (confirmPasswordField.value && passwordField.value !== confirmPasswordField.value) {
+        UI.showFieldError('confirmPassword', 'Las contraseñas no coinciden');
+        return false;
+      } else {
+        UI.clearFieldError('confirmPassword');
+        return true;
+      }
+    }
+    
+    if (confirmPasswordField) {
+      confirmPasswordField.addEventListener('input', validatePasswordMatch);
+      passwordField?.addEventListener('input', () => {
+        if (confirmPasswordField.value) validatePasswordMatch();
+      });
+    }
+    
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!validatePasswordMatch()) {
+        return;
+      }
+      
+      const formData = new FormData(e.target);
+      await Auth.register({
+        first_name: formData.get('first_name'),
+        last_name: formData.get('last_name'),
+        email: formData.get('email'),
+        age: formData.get('age') ? parseInt(formData.get('age')) : undefined,
+        password: formData.get('password')
+      });
+    });
+  }
+}
+
+async function verifyCartOwnership() {
+  const token = Storage.getToken();
+  const user = Storage.getUser();
+  const localCartId = localStorage.getItem('bbfermentos_cart_id');
+  
+  if (!token || !user || !localCartId) return;
+  
+  let userCartId = null;
+  if (user.cart) {
+    if (typeof user.cart === 'object' && user.cart._id) {
+      userCartId = user.cart._id.toString();
+    } else {
+      userCartId = user.cart.toString();
+    }
+  }
+  
+  if (userCartId && localCartId !== userCartId) {
+    console.log('⚠️ Carrito desincronizado');
+    localStorage.setItem('bbfermentos_cart_id', userCartId);
+    
+    if (window.location.pathname.includes('/carts/')) {
+      window.location.href = `/carts/${userCartId}`;
+    }
+  }
+}
+
+// ==========================================
+// INICIALIZACIÓN GLOBAL
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', () => {
-    initializeAuth();
+  initializeLoginForm();
+  initializeRegisterForm();
+  Auth.updateUI();
+  verifyCartOwnership();
+  
+  const token = Storage.getToken();
+  if (token) {
+    document.cookie = `bbfermentos_auth_token=${token}; path=/; max-age=86400`;
+  }
 });
 
-console.log('🔐 Sistema de autenticación BBFermentos inicializado');
+// ==========================================
+// API PÚBLICA
+// ==========================================
+
+window.BBAuth = {
+  login: Auth.login.bind(Auth),
+  register: Auth.register.bind(Auth),
+  logout: Auth.logout.bind(Auth),
+  isAuthenticated: Storage.isAuthenticated.bind(Storage),
+  getUser: Storage.getUser.bind(Storage),
+  showAlert: UI.showAlert
+};

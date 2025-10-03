@@ -1,35 +1,13 @@
-<h2>Productos en Tiempo Real</h2>
+<!-- CONTENIDO SOLO PARA ADMIN (ya verificado por middleware) -->
+<h2>🔧 Panel de Administración - Productos en Tiempo Real</h2>
 
 <div id="status" class="mb-3">
     <span id="connectionStatus" style="color: orange;">Conectando...</span>
 </div>
 
-<!-- Interruptor de Administrador -->
-<div class="admin-toggle mb-3">
-    <label for="adminToggle" style="display: flex; align-items: center; gap: 10px; font-weight: bold;">
-        <span>Modo Administrador:</span>
-        <select id="adminToggle" style="width: auto; padding: 5px;">
-            <option value="false">No</option>
-            <option value="true">Sí</option>
-        </select>
-        <span id="adminStatus" class="text-danger">Desactivado</span>
-    </label>
-</div>
-
-{{#if success}}
-    <div class="alert alert-success">
-        {{success}}
-    </div>
-{{/if}}
-
-{{#if error}}
-    <div class="alert alert-danger">
-        {{error}}
-    </div>
-{{/if}}
-
-<div id="adminSection" style="display: none;">
-    <h3>Agregar Nuevo Producto</h3>
+<!-- FORMULARIO DE CREACIÓN -->
+<div id="adminSection">
+    <h3>➕ Crear Nuevo Producto</h3>
     <form id="productForm">
         <div class="form-group">
             <label for="title">Título:</label>
@@ -71,17 +49,13 @@
             <small>Solo ingresa el nombre del archivo. Las imágenes deben estar en public/img/</small>
         </div>
         
-        <button type="submit" class="btn-primary">Agregar Producto</button>
+        <button type="submit" class="btn-primary">➕ Crear Producto</button>
     </form>
     
     <hr>
 </div>
 
-<div id="nonAdminMessage" class="alert alert-danger">
-    <strong>Acceso restringido:</strong> Solo los administradores pueden agregar, editar o eliminar productos. Active el modo administrador para acceder a estas funciones.
-</div>
-
-<!-- Modal de Edición -->
+<!-- Modal de Edición (mismo código que antes) -->
 <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 90%; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #dee2e6; padding-bottom: 15px;">
@@ -139,211 +113,88 @@
     </div>
 </div>
 
-<h3>Lista de Productos</h3>
-<div id="productsList">
-</div>
+<h3>📦 Lista de Productos</h3>
+<div id="productsList"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    console.log('🔄 Iniciando realTimeProducts...');
     
-    const socket = io();
+    // Obtener token de autenticación
+    function getAuthToken() {
+        return localStorage.getItem('bbfermentos_auth_token');
+    }
+    
+    const token = getAuthToken();
+    
+    if (!token) {
+        
+        
+        window.location.href = '/login';
+    }
+    
+    // Configurar socket con token
+    const socket = io({
+        auth: {
+            token: token
+        }
+    });
+
     const productsList = document.getElementById('productsList');
     const connectionStatus = document.getElementById('connectionStatus');
     const productForm = document.getElementById('productForm');
     const editProductForm = document.getElementById('editProductForm');
-    const adminToggle = document.getElementById('adminToggle');
-    const adminStatus = document.getElementById('adminStatus');
-    const adminSection = document.getElementById('adminSection');
-    const nonAdminMessage = document.getElementById('nonAdminMessage');
     const editModal = document.getElementById('editModal');
 
-    let isAdmin = false;
-
-    // Verificar que todos los elementos existan
-    console.log('🔍 Verificando elementos DOM:', {
-        productsList: !!productsList,
-        connectionStatus: !!connectionStatus,
-        productForm: !!productForm,
-        adminToggle: !!adminToggle
-    });
-
-    adminToggle.addEventListener('change', (e) => {
-        isAdmin = e.target.value === 'true';
-        console.log('👑 Admin mode changed to:', isAdmin);
-        updateAdminInterface();
-    });
-
-    function updateAdminInterface() {
-        console.log('🔧 Updating interface, isAdmin:', isAdmin);
-        
-        if (isAdmin) {
-            adminStatus.textContent = 'Activado';
-            adminStatus.className = 'text-success';
-            adminSection.style.display = 'block';
-            nonAdminMessage.style.display = 'none';
-        } else {
-            adminStatus.textContent = 'Desactivado';
-            adminStatus.className = 'text-danger';
-            adminSection.style.display = 'none';
-            nonAdminMessage.style.display = 'block';
-        }
-        
-        const currentProducts = JSON.parse(sessionStorage.getItem('currentProducts') || '[]');
-        console.log('📦 Current products from session:', currentProducts.length);
-        if (currentProducts.length > 0) {
-            renderProducts(currentProducts);
-        }
-    }
-
     socket.on('connect', () => {
-        console.log('✅ Conectado al servidor con ID:', socket.id);
         connectionStatus.textContent = 'Conectado ✓';
         connectionStatus.style.color = 'green';
-        
-        // Solicitar productos inmediatamente después de conectar
-        console.log('📡 Solicitando productos iniciales...');
         socket.emit('requestProducts');
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('❌ Desconectado del servidor. Razón:', reason);
         connectionStatus.textContent = 'Desconectado ✗';
         connectionStatus.style.color = 'red';
     });
 
-    socket.on('connect_error', (error) => {
-        console.error('💥 Error de conexión:', error);
-        connectionStatus.textContent = 'Error de conexión ✗';
-        connectionStatus.style.color = 'red';
-    });
-
     socket.on('updateProducts', (products) => {
-        console.log('📦 Productos recibidos del servidor:', {
-            isArray: Array.isArray(products),
-            length: products ? products.length : 0,
-            firstProduct: products && products[0] ? {
-                id: products[0]._id,
-                title: products[0].title
-            } : null
-        });
-        
-        if (!products) {
-            console.error('❌ Productos es null o undefined');
-            productsList.innerHTML = '<div class="alert alert-danger"><p>Error: No se recibieron productos del servidor.</p></div>';
-            return;
+        if (products) {
+            sessionStorage.setItem('currentProducts', JSON.stringify(products));
+            renderProducts(products);
         }
-        
-        if (!Array.isArray(products)) {
-            console.error('❌ Productos no es un array:', typeof products);
-            productsList.innerHTML = '<div class="alert alert-danger"><p>Error: Formato de productos inválido.</p></div>';
-            return;
-        }
-        
-        sessionStorage.setItem('currentProducts', JSON.stringify(products));
-        renderProducts(products);
     });
 
     function renderProducts(products) {
-        console.log('🎨 Renderizando productos:', {
-            count: products ? products.length : 0,
-            isAdmin: isAdmin
-        });
-        
-        if (!productsList) {
-            console.error('❌ Elemento productsList no encontrado');
-            return;
-        }
+        if (!productsList) return;
         
         if (!products || products.length === 0) {
-            console.log('⚠️ No hay productos para mostrar');
-            productsList.innerHTML = `
-                <div class="alert alert-warning">
-                    <h4>📦 No hay productos disponibles</h4>
-                    <p>Los productos aparecerán aquí automáticamente cuando se agreguen al sistema.</p>
-                    <p><strong>Estado de conexión:</strong> ${socket.connected ? 'Conectado ✅' : 'Desconectado ❌'}</p>
-                </div>
-            `;
+            productsList.innerHTML = '<div class="alert alert-warning"><h4>📦 No hay productos disponibles</h4></div>';
             return;
         }
 
-        console.log('✅ Generando HTML para', products.length, 'productos');
-        
-        const productsHTML = products.map((product, index) => {
-            console.log(`🔍 Procesando producto ${index + 1}:`, {
-                id: product._id,
-                title: product.title,
-                price: product.price,
-                stock: product.stock
-            });
-            
-            return `
-                <div class="realtime-product" style="border: 1px solid #ddd; margin: 15px 0; padding: 15px; border-radius: 8px; background: #f9f9f9;">
-                    <h4 style="margin: 0 0 10px 0; color: #333;">
-                        ${product.title || 'Sin título'} - 
-                        <span class="text-success" style="color: #28a745;">$${product.price || 0}</span>
-                    </h4>
-                    <p class="product-description" style="margin: 10px 0; color: #666;">
-                        ${product.description || 'Sin descripción'}
-                    </p>
-                    <div class="product-details" style="margin: 10px 0; font-size: 14px; color: #555;">
-                        <strong>Stock:</strong> ${product.stock || 0} | 
-                        <strong>Categoría:</strong> ${product.category || 'Sin categoría'} | 
-                        <strong>Estado:</strong> <span style="color: ${product.status ? '#28a745' : '#dc3545'}">${product.status ? 'Activo' : 'Inactivo'}</span> | 
-                        <strong>Código:</strong> ${product.code || 'N/A'} | 
-                        <strong>ID:</strong> <small>${product._id || 'N/A'}</small>
-                    </div>
-                    ${product.thumbnails && product.thumbnails.length > 0 ? 
-                        `<div class="product-images" style="margin: 15px 0;">
-                            ${product.thumbnails.map(img => 
-                                `<img src="${img}" alt="${product.title}" style="width: 60px; height: 60px; object-fit: cover; margin: 5px; border-radius: 4px; border: 1px solid #ddd;" onerror="this.style.display='none'; console.log('Error cargando imagen:', '${img}');">`
-                            ).join('')}
-                        </div>` : 
-                        '<div style="color: #999; font-style: italic; margin: 10px 0;">Sin imágenes</div>'
-                    }
-                    
-                    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        ${isAdmin ? `
-                            <button onclick="editProduct('${product._id}')" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                                ✏️ Editar
-                            </button>
-                            <button onclick="deleteProduct('${product._id}')" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                                🗑️ Eliminar
-                            </button>
-                        ` : `
-                            <div style="color: #6c757d; font-style: italic; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
-                                Solo administradores pueden editar o eliminar productos
-                            </div>
-                        `}
-                    </div>
+        const productsHTML = products.map(product => `
+            <div class="realtime-product" style="border: 1px solid #ddd; margin: 15px 0; padding: 15px; border-radius: 8px;">
+                <h4>${product.title} - <span style="color: #28a745;">$${product.price}</span></h4>
+                <p>${product.description}</p>
+                <div style="margin: 10px 0; font-size: 14px;">
+                    <strong>Stock:</strong> ${product.stock} | 
+                    <strong>Categoría:</strong> ${product.category} | 
+                    <strong>Estado:</strong> ${product.status ? 'Activo' : 'Inactivo'}
                 </div>
-            `;
-        }).join('');
+                <div style="margin-top: 15px;">
+                    <button onclick="editProduct('${product._id}')" class="btn-info">✏️ Editar</button>
+                    <button onclick="deleteProduct('${product._id}')" class="btn-danger">🗑️ Eliminar</button>
+                </div>
+            </div>
+        `).join('');
 
-        console.log('📝 HTML generado, longitud:', productsHTML.length);
         productsList.innerHTML = productsHTML;
-        console.log('✅ Productos renderizados exitosamente en el DOM');
     }
 
-    // Función para editar producto
     window.editProduct = function(productId) {
-        console.log('✏️ Función editProduct llamada para:', productId);
-        
-        if (!isAdmin) {
-            alert('Solo los administradores pueden editar productos. Active el modo administrador.');
-            return;
-        }
-        
         const currentProducts = JSON.parse(sessionStorage.getItem('currentProducts') || '[]');
         const product = currentProducts.find(p => p._id === productId);
         
-        if (!product) {
-            console.error('❌ Producto no encontrado:', productId);
-            alert('Producto no encontrado');
-            return;
-        }
-        
-        console.log('📝 Llenando formulario de edición con:', product);
+        if (!product) return 
         
         document.getElementById('editProductId').value = product._id;
         document.getElementById('editTitle').value = product.title;
@@ -352,56 +203,26 @@
         document.getElementById('editStatus').value = product.status.toString();
         document.getElementById('editStock').value = product.stock;
         document.getElementById('editCategory').value = product.category;
-        
-        let thumbnailNames = '';
-        if (product.thumbnails && product.thumbnails.length > 0) {
-            thumbnailNames = product.thumbnails.map(url => url.replace('/img/', '')).join(', ');
-        }
-        document.getElementById('editThumbnails').value = thumbnailNames;
+        document.getElementById('editThumbnails').value = product.thumbnails?.map(url => url.replace('/img/', '')).join(', ') || '';
         
         editModal.style.display = 'block';
     }
 
-    // Función para eliminar producto
     window.deleteProduct = function(productId) {
-        console.log('🗑️ Función deleteProduct llamada para:', productId);
-        
-        if (!isAdmin) {
-            alert('Solo los administradores pueden eliminar productos. Active el modo administrador.');
-            return;
-        }
-        
-        if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-            console.log('✅ Confirmado, enviando deleteProduct al servidor');
+        if (confirm('¿Estás seguro?')) {
             socket.emit('deleteProduct', productId);
         }
     }
 
-    // Cerrar modal de edición
     window.closeEditModal = function() {
         editModal.style.display = 'none';
         editProductForm.reset();
     }
 
-    // Event listeners
     editProductForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        if (!isAdmin) {
-            alert('Solo los administradores pueden editar productos. Active el modo administrador.');
-            return;
-        }
-        
         const formData = new FormData(editProductForm);
         const productId = document.getElementById('editProductId').value;
-        const thumbnails = formData.get('thumbnails');
-        
-        const thumbnailsArray = thumbnails ? 
-            thumbnails.split(',')
-                .map(filename => filename.trim())
-                .filter(filename => filename)
-                .map(filename => `/img/${filename}`) : 
-            [];
         
         const productData = {
             title: formData.get('title'),
@@ -410,31 +231,16 @@
             status: formData.get('status') === 'true',
             stock: parseInt(formData.get('stock')),
             category: formData.get('category'),
-            thumbnails: thumbnailsArray
+            thumbnails: formData.get('thumbnails')?.split(',').map(f => `/img/${f.trim()}`).filter(Boolean) || []
         };
 
-        console.log('📤 Enviando actualización de producto:', { productId, productData });
         socket.emit('updateProduct', { productId, productData });
         closeEditModal();
     });
 
     productForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        if (!isAdmin) {
-            alert('Solo los administradores pueden agregar productos. Active el modo administrador.');
-            return;
-        }
-        
         const formData = new FormData(productForm);
-        const thumbnails = formData.get('thumbnails');
-        
-        const thumbnailsArray = thumbnails ? 
-            thumbnails.split(',')
-                .map(filename => filename.trim())
-                .filter(filename => filename)
-                .map(filename => `/img/${filename}`) : 
-            [];
         
         const productData = {
             title: formData.get('title'),
@@ -443,66 +249,18 @@
             status: formData.get('status') === 'true',
             stock: parseInt(formData.get('stock')),
             category: formData.get('category'),
-            thumbnails: thumbnailsArray
+            thumbnails: formData.get('thumbnails')?.split(',').map(f => `/img/${f.trim()}`).filter(Boolean) || []
         };
 
-        console.log('📤 Enviando nuevo producto:', productData);
         socket.emit('addProduct', productData);
         productForm.reset();
     });
 
-    // Manejar respuestas del servidor
     socket.on('error', (error) => {
-        console.error('💥 Error del servidor:', error);
-        alert('Error: ' + error.message);
-    });
-
-    socket.on('productUpdated', (data) => {
-        console.log('📥 Respuesta productUpdated:', data);
-        if (data.success) {
-            console.log('✅ Producto actualizado exitosamente:', data.product);
-        } else {
-            alert('Error al actualizar producto: ' + data.message);
+        
+        if (error.code === 'FORBIDDEN') {
+            
+            window.location.href = '/products';
         }
     });
-
-    socket.on('productAdded', (data) => {
-        console.log('📥 Respuesta productAdded:', data);
-        if (data.success) {
-            console.log('✅ Producto agregado exitosamente:', data.product);
-        } else {
-            alert('Error al agregar producto: ' + data.message);
-        }
-    });
-
-    socket.on('productDeleted', (data) => {
-        console.log('📥 Respuesta productDeleted:', data);
-        if (data.success) {
-            console.log('✅ Producto eliminado exitosamente:', data.productId);
-        }
-    });
-
-    // Cerrar modal al hacer click fuera
-    editModal.addEventListener('click', (e) => {
-        if (e.target === editModal) {
-            closeEditModal();
-        }
-    });
-
-    // Inicializar interfaz
-    updateAdminInterface();
-    
-    console.log('🚀 Script de realTimeProducts inicializado completamente');
-    
-    // Verificar si hay productos del servidor (renderizados por Handlebars)
-    const serverProducts = {{{json products}}};
-    console.log('📋 Productos del servidor (Handlebars):', serverProducts);
-    
-    if (serverProducts && serverProducts.length > 0) {
-        console.log('✅ Renderizando productos iniciales del servidor');
-        sessionStorage.setItem('currentProducts', JSON.stringify(serverProducts));
-        renderProducts(serverProducts);
-    } else {
-        console.log('⚠️ No hay productos iniciales del servidor');
-    }
 </script>

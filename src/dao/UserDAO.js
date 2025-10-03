@@ -2,7 +2,6 @@ import BaseDAO from './BaseDAO.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
 
-
 class UserDAO extends BaseDAO {
     constructor() {
         super(User);
@@ -23,8 +22,6 @@ class UserDAO extends BaseDAO {
             if (existingUser) {
                 throw new Error('El email ya está registrado');
             }
-
-            console.log('📝 [UserDAO] Creando usuario con campos:', Object.keys(userData));
             
             // Crear usuario (la contraseña ya debe venir hasheada desde el service)
             const newUser = await this.create(userData);
@@ -34,35 +31,26 @@ class UserDAO extends BaseDAO {
             
             return userWithoutPassword;
         } catch (error) {
-            console.error('❌ [UserDAO] Error creando usuario:', error.message);
             throw error;
         }
     }
 
     async findByEmail(email) {
         try {
-            console.log('🔍 [UserDAO] Buscando usuario por email:', email);
             
             const user = await this.findOne({ 
                 email: email.toLowerCase() 
             }, 'cart');
             
-            if (user) {
-                console.log('✅ [UserDAO] Usuario encontrado:', user._id);
-            } else {
-                console.log('⚠️ [UserDAO] Usuario no encontrado');
-            }
             
             return user;
         } catch (error) {
-            console.error('❌ [UserDAO] Error buscando por email:', error.message);
             throw error;
         }
     }
 
     async findByEmailWithPassword(email) {
         try {
-            console.log('🔍 [UserDAO] Buscando usuario con password para login:', email);
             
             await this._ensureConnection();
             
@@ -70,36 +58,23 @@ class UserDAO extends BaseDAO {
                 email: email.toLowerCase() 
             }).populate('cart').exec();
             
-            if (user) {
-                console.log('✅ [UserDAO] Usuario encontrado para autenticación:', user._id);
-                console.log('🔐 [UserDAO] Password hash presente:', !!user.password);
-            }
-            
             return user;
         } catch (error) {
-            console.error('❌ [UserDAO] Error buscando usuario para login:', error.message);
             throw error;
         }
     }
 
     async findByIdForJWT(userId) {
         try {
-            console.log('🎫 [UserDAO] Buscando usuario por ID para JWT:', userId);
             
             const user = await this.findById(userId, 'cart');
             
             // Remover password por seguridad
             const { password, ...userForJWT } = user.toObject();
             
-            console.log('✅ [UserDAO] Usuario encontrado para JWT:', {
-                id: userForJWT._id,
-                email: userForJWT.email,
-                role: userForJWT.role
-            });
             
             return userForJWT;
         } catch (error) {
-            console.error('❌ [UserDAO] Error buscando usuario para JWT:', error.message);
             throw error;
         }
     }
@@ -113,8 +88,35 @@ class UserDAO extends BaseDAO {
             const user = await this.model.findById(userId).select('_id').lean();
             return !!user;
         } catch (error) {
-            console.error('❌ [UserDAO] Error verificando existencia de usuario:', error.message);
             return false;
+        }
+    }
+
+    /**
+     * Actualizar usuario por ID (necesario para reset password)
+     */
+    async updateById(userId, updateData) {
+        try {
+            
+            await this._ensureConnection();
+            
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw new Error(`ID inválido: ${userId}`);
+            }
+            
+            const updated = await this.model.findByIdAndUpdate(
+                userId,
+                updateData,
+                { new: true, runValidators: true }
+            );
+            
+            if (!updated) {
+                throw new Error(`Usuario con ID ${userId} no encontrado`);
+            }
+            
+            return updated;
+        } catch (error) {
+            throw error;
         }
     }
 
@@ -123,23 +125,20 @@ class UserDAO extends BaseDAO {
      */
     async updateLastLogin(userId) {
         try {
-            console.log('📅 [UserDAO] Actualizando último login:', userId);
             
             return await this.updateById(userId, { 
                 lastLogin: new Date() 
             });
         } catch (error) {
-            console.error('❌ [UserDAO] Error actualizando último login:', error.message);
             throw error;
         }
     }
 
     /**
-     * Obtener usuarios por rol (útil para administración)
+     * Obtener usuarios por rol
      */
     async findByRole(role) {
         try {
-            console.log('👥 [UserDAO] Buscando usuarios por rol:', role);
             
             await this._ensureConnection();
             
@@ -148,11 +147,9 @@ class UserDAO extends BaseDAO {
                 .populate('cart')
                 .exec();
             
-            console.log(`✅ [UserDAO] Encontrados ${users.length} usuarios con rol ${role}`);
             
             return users;
         } catch (error) {
-            console.error('❌ [UserDAO] Error buscando por rol:', error.message);
             throw error;
         }
     }

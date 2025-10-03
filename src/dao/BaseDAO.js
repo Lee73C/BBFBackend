@@ -26,11 +26,8 @@ class BaseDAO {
             const document = new this.model(data);
             const saved = await document.save();
             
-            console.log(`✅ [${this.modelName}DAO] Documento creado:`, saved._id);
             return saved;
         } catch (error) {
-            console.error(`❌ [${this.modelName}DAO] Error creando:`, error.message);
-            
             if (error.name === 'ValidationError') {
                 const errors = Object.values(error.errors).map(err => err.message);
                 throw new Error(`Errores de validación: ${errors.join(', ')}`);
@@ -65,7 +62,6 @@ class BaseDAO {
             
             return document;
         } catch (error) {
-            console.error(`❌ [${this.modelName}DAO] Error buscando por ID:`, error.message);
             throw error;
         }
     }
@@ -83,7 +79,6 @@ class BaseDAO {
             const document = await query.exec();
             return document;
         } catch (error) {
-            console.error(`❌ [${this.modelName}DAO] Error en findOne:`, error.message);
             throw new Error(`Error al buscar ${this.modelName}: ${error.message}`);
         }
     }
@@ -107,10 +102,8 @@ class BaseDAO {
                 throw new Error(`${this.modelName} con ID ${id} no encontrado`);
             }
             
-            console.log(`✅ [${this.modelName}DAO] Documento actualizado:`, updated._id);
             return updated;
         } catch (error) {
-            console.error(`❌ [${this.modelName}DAO] Error actualizando:`, error.message);
             throw error;
         }
     }
@@ -130,10 +123,8 @@ class BaseDAO {
                 throw new Error(`${this.modelName} con ID ${id} no encontrado`);
             }
             
-            console.log(`✅ [${this.modelName}DAO] Documento eliminado:`, deleted._id);
             return deleted;
         } catch (error) {
-            console.error(`❌ [${this.modelName}DAO] Error eliminando:`, error.message);
             throw error;
         }
     }

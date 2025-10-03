@@ -45,7 +45,6 @@ const connectDB = async () => {
     // Event listeners (solo una vez)
     if (!mongoose.connection._eventsSet) {
       mongoose.connection.on('error', (error) => {
-        console.error('Error de conexión MongoDB:', error);
         isConnected = false;
       });
       
@@ -67,8 +66,7 @@ const connectDB = async () => {
           await mongoose.connection.close();
           isConnected = false;
         } catch (error) {
-          console.error('Error cerrando conexión:', error);
-        }
+          }
         process.exit(0);
       });
       
@@ -77,8 +75,7 @@ const connectDB = async () => {
           await mongoose.connection.close();
           isConnected = false;
         } catch (error) {
-          console.error('Error cerrando conexión:', error);
-        }
+          }
         process.exit(0);
       });
       
@@ -89,7 +86,6 @@ const connectDB = async () => {
     await mongoose.connection.db.admin().ping();
     
   } catch (error) {
-    console.error('Error conectando a MongoDB:', error.message);
     isConnected = false;
     
     if (process.env.NODE_ENV === 'development') {

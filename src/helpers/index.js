@@ -185,25 +185,20 @@ const helpers = {
     },
 
     getTotalItems: function(products) {
-        console.log('🔢 getTotalItems helper called with:', products);
         
         if (!products) {
-            console.log('❌ Products is null or undefined');
             return 0;
         }
         
         if (!Array.isArray(products)) {
-            console.log('❌ Products is not an array:', typeof products);
             return 0;
         }
         
         const total = products.reduce((total, item) => {
             const quantity = parseInt(item.quantity) || 0;
-            console.log(`📦 Item quantity: ${quantity}`);
             return total + quantity;
         }, 0);
         
-        console.log('✅ Total items calculated by helper:', total);
         return total;
     }
 };

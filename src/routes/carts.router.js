@@ -1,37 +1,43 @@
 import { Router } from 'express';
 import CartManager from '../managers/CartManager.js';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 const cartManager = new CartManager();
 
-//Crea nuevo carrito
+// ====================================
+// RUTAS PÚBLICAS/MIXTAS
+// ====================================
+
+/**
+ * POST /api/carts
+ * Crear carrito (público para invitados)
+ */
 router.post("/", async (req, res) => {
     try {
         const newCart = await cartManager.createCart();
         res.status(201).json({ 
             status: "success", 
-            message: "Carrito creado exitosamente",
+            message: "Carrito creado",
             cart: newCart 
         });
     } catch (error) {
         res.status(500).json({ 
             status: "error", 
-            message: "Error al crear el carrito", 
-            error: error.message 
+            message: error.message 
         });
     }
 });
 
-//Muestra productos según el ID del carrito
+/**
+ * GET /api/carts/:cid
+ * Ver carrito (público para permitir invitados)
+ */
 router.get("/:cid", async (req, res) => {
     try {
         const { cid } = req.params;
         const cart = await cartManager.getCartById(cid);
-        
-        res.json({ 
-            status: "success", 
-            cart 
-        });
+        res.json({ status: "success", cart });
     } catch (error) {
         res.status(404).json({ 
             status: "error", 
@@ -40,166 +46,197 @@ router.get("/:cid", async (req, res) => {
     }
 });
 
-//Agregar un producto al carrito identificado por ID 
-router.post("/:cid/product/:pid", async (req, res) => {
-    try {
-        const { cid, pid } = req.params;
-        const updatedCart = await cartManager.addProductToCart(cid, pid);
-        
-        res.json({ 
-            status: "success", 
-            message: "Producto agregado al carrito exitosamente",
-            cart: updatedCart 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
-    }
-});
+// ====================================
+// RUTAS CON AUTENTICACIÓN OPCIONAL
+// ====================================
 
-// Eliminar un producto específico del carrito
-router.delete("/:cid/product/:pid", async (req, res) => {
-    try {
-        const { cid, pid } = req.params;
-        const updatedCart = await cartManager.removeProductFromCart(cid, pid);
-        
-        res.json({ 
-            status: "success", 
-            message: "Producto eliminado del carrito exitosamente",
-            cart: updatedCart 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
-    }
-});
-
-// Actualizar cantidad de un producto en el carrito
-router.put("/:cid/product/:pid", async (req, res) => {
-    try {
-        const { cid, pid } = req.params;
-        const { quantity } = req.body;
-        
-        if (!quantity || quantity < 0) {
-            return res.status(400).json({
-                status: "error",
-                message: "La cantidad debe ser un número positivo"
+/**
+ * POST /api/carts/:cid/product/:pid
+ * Agregar producto al carrito
+ */
+router.post("/:cid/product/:pid",
+    optionalAuth,
+    async (req, res) => {
+        try {
+            const { cid, pid } = req.params;
+            
+            // 🔧 VERIFICACIÓN MEJORADA DE PERMISOS
+            if (req.user) {
+                // Usuario autenticado: verificar que sea su carrito o admin
+                const userCartId = req.user.cart?.toString();
+                
+                if (req.user.role !== 'admin' && cid !== userCartId) {
+                    console.log(`❌ Permiso denegado. User cart: ${userCartId}, Request cart: ${cid}`);
+                    
+                    // En vez de denegar, redirigir al carrito correcto
+                    return res.status(400).json({
+                        status: "error",
+                        message: "Usa tu carrito asignado",
+                        correctCartId: userCartId
+                    });
+                }
+            }
+            // Si no hay usuario (invitado), permitir cualquier carrito
+            
+            const updatedCart = await cartManager.addProductToCart(cid, pid);
+            
+            res.json({ 
+                status: "success", 
+                message: "Producto agregado al carrito",
+                cart: updatedCart 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: "error", 
+                message: error.message 
             });
         }
-        
-        const updatedCart = await cartManager.updateProductQuantity(cid, pid, parseInt(quantity));
-        
-        res.json({ 
-            status: "success", 
-            message: "Cantidad actualizada exitosamente",
-            cart: updatedCart 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
     }
-});
+);
 
-// Vaciar carrito completo
-router.delete("/:cid", async (req, res) => {
-    try {
-        const { cid } = req.params;
-        const clearedCart = await cartManager.clearCart(cid);
-        
-        res.json({ 
-            status: "success", 
-            message: "Carrito vaciado exitosamente",
-            cart: clearedCart 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
-    }
-});
-
-// Actualizar carrito completo (reemplazar todos los productos)
-router.put("/:cid", async (req, res) => {
-    try {
-        const { cid } = req.params;
-        const { products } = req.body;
-        
-        if (!Array.isArray(products)) {
-            return res.status(400).json({
-                status: "error",
-                message: "Products debe ser un array"
-            });
-        }
-        
-        // Validar formato de productos
-        for (const item of products) {
-            if (!item.product || !item.quantity || item.quantity < 1) {
+/**
+ * PUT /api/carts/:cid/product/:pid
+ * Actualizar cantidad (autenticación opcional)
+ */
+router.put("/:cid/product/:pid",
+    optionalAuth,
+    async (req, res) => {
+        try {
+            const { cid, pid } = req.params;
+            const { quantity } = req.body;
+            
+            // Si hay usuario autenticado, verificar propiedad
+            if (req.user) {
+                const userCartId = req.user.cart?.toString();
+                if (cid !== userCartId && req.user.role !== 'admin') {
+                    return res.status(403).json({
+                        status: "error",
+                        message: "No autorizado para modificar este carrito"
+                    });
+                }
+            }
+            
+            if (!quantity || quantity < 0) {
                 return res.status(400).json({
                     status: "error",
-                    message: "Cada producto debe tener 'product' (ID) y 'quantity' (número positivo)"
+                    message: "Cantidad inválida"
                 });
             }
+            
+            const updatedCart = await cartManager.updateProductQuantity(
+                cid, pid, parseInt(quantity)
+            );
+            
+            res.json({ 
+                status: "success", 
+                message: "Cantidad actualizada",
+                cart: updatedCart 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: "error", 
+                message: error.message 
+            });
         }
-        
-        const cart = await cartManager.getCartById(cid);
-        cart.products = products;
-        await cart.save();
-        
-        const updatedCart = await cartManager.getCartById(cid);
-        
-        res.json({ 
-            status: "success", 
-            message: "Carrito actualizado exitosamente",
-            cart: updatedCart 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
     }
-});
+);
 
-// Obtener total del carrito
-router.get("/:cid/total", async (req, res) => {
-    try {
-        const { cid } = req.params;
-        const total = await cartManager.getCartTotal(cid);
-        
-        res.json({ 
-            status: "success", 
-            total: total 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: error.message 
-        });
+/**
+ * DELETE /api/carts/:cid/product/:pid
+ * Eliminar producto (autenticación opcional)
+ */
+router.delete("/:cid/product/:pid",
+    optionalAuth,
+    async (req, res) => {
+        try {
+            const { cid, pid } = req.params;
+            
+            // Si hay usuario autenticado, verificar propiedad
+            if (req.user) {
+                const userCartId = req.user.cart?.toString();
+                if (cid !== userCartId && req.user.role !== 'admin') {
+                    return res.status(403).json({
+                        status: "error",
+                        message: "No autorizado"
+                    });
+                }
+            }
+            
+            const updatedCart = await cartManager.removeProductFromCart(cid, pid);
+            
+            res.json({ 
+                status: "success", 
+                message: "Producto eliminado",
+                cart: updatedCart 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: "error", 
+                message: error.message 
+            });
+        }
     }
-});
+);
 
-// Obtener todos los carritos (para admin)
-router.get("/", async (req, res) => {
-    try {
-        const carts = await cartManager.getAllCarts();
-        res.json({ 
-            status: "success", 
-            carts 
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            status: "error", 
-            message: "Error al obtener carritos", 
-            error: error.message 
-        });
+/**
+ * DELETE /api/carts/:cid
+ * Vaciar carrito (autenticación opcional)
+ */
+router.delete("/:cid",
+    optionalAuth,
+    async (req, res) => {
+        try {
+            const { cid } = req.params;
+            
+            // Si hay usuario autenticado, verificar propiedad
+            if (req.user) {
+                const userCartId = req.user.cart?.toString();
+                if (cid !== userCartId && req.user.role !== 'admin') {
+                    return res.status(403).json({
+                        status: "error",
+                        message: "No autorizado"
+                    });
+                }
+            }
+            
+            const clearedCart = await cartManager.clearCart(cid);
+            
+            res.json({ 
+                status: "success", 
+                message: "Carrito vaciado",
+                cart: clearedCart 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: "error", 
+                message: error.message 
+            });
+        }
     }
-});
+);
+
+// ====================================
+// RUTAS ADMINISTRATIVAS
+// ====================================
+
+/**
+ * GET /api/carts
+ * Solo admin puede ver todos los carritos
+ */
+router.get("/", 
+    authenticate,
+    authorize('admin'),
+    async (req, res) => {
+        try {
+            const carts = await cartManager.getAllCarts();
+            res.json({ status: "success", carts });
+        } catch (error) {
+            res.status(500).json({ 
+                status: "error", 
+                message: error.message 
+            });
+        }
+    }
+);
 
 export default router;
